@@ -1,0 +1,116 @@
+# 证券交易推荐系统配置文件
+
+# 数据源配置
+data_source:
+  # 数据源类型：tushare, akshare, yfinance等
+  provider: "tushare"
+  # API配置
+  api_key: "your_api_key_here"
+  # 数据更新频率（分钟）
+  update_interval: 60
+  # 缓存配置
+  cache:
+    enabled: true
+    expire_time: 3600  # 秒
+
+# 分析策略配置
+analysis:
+  # 分析的证券类型
+  security_types:
+    - stock  # 股票
+    - fund   # 基金
+    - etf    # ETF
+  
+  # 技术指标配置
+  indicators:
+    - name: "MA"  # 移动平均线
+      params:
+        periods: [5, 10, 20, 60]
+    - name: "MACD"  # MACD指标
+      params:
+        fast: 12
+        slow: 26
+        signal: 9
+    - name: "RSI"  # 相对强弱指标
+      params:
+        period: 14
+    - name: "KDJ"  # KDJ指标
+      params:
+        n: 9
+        m1: 3
+        m2: 3
+  
+  # 选股条件
+  filters:
+    min_price: 5.0      # 最低价格
+    max_price: 1000.0   # 最高价格
+    min_volume: 1000000 # 最小成交量
+    min_market_cap: 1000000000  # 最小市值（元）
+
+# 回测配置
+backtest:
+  # 回测时间范围
+  start_date: "2023-01-01"
+  end_date: "2024-12-31"
+  # 初始资金
+  initial_cash: 100000.0
+  # 手续费率
+  commission: 0.0003
+  # 印花税率（仅卖出时）
+  stamp_duty: 0.001
+  # 每次交易金额占比
+  position_size: 0.2
+
+# 报告生成配置
+report:
+  # 报告格式
+  format: ["html", "json"]
+  # 输出路径
+  output_path: "data/reports/"
+  # 推荐数量
+  top_n: 10
+  # 包含图表
+  include_charts: true
+
+# 推送配置
+notification:
+  # 启用的推送方式
+  enabled_channels:
+    - email
+    # - wechat
+    # - dingtalk
+  
+  # 邮件推送配置
+  email:
+    smtp_server: "smtp.example.com"
+    smtp_port: 587
+    use_tls: true
+    username: "your_email@example.com"
+    password: "your_password"
+    from_addr: "your_email@example.com"
+    to_addrs:
+      - "recipient1@example.com"
+      - "recipient2@example.com"
+  
+  # 微信推送配置（Server酱等）
+  wechat:
+    webhook_url: "https://sc.ftqq.com/your_key.send"
+  
+  # 钉钉推送配置
+  dingtalk:
+    webhook_url: "https://oapi.dingtalk.com/robot/send?access_token=your_token"
+    secret: "your_secret"
+  
+  # 推送时间
+  schedule:
+    # 推送时间（24小时制）
+    time: "09:00"
+    # 推送频率：daily, weekly, on_signal
+    frequency: "daily"
+
+# 日志配置
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_file: "logs/trading_tips.log"
+  max_size: "10MB"
+  backup_count: 5
