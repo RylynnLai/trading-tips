@@ -104,9 +104,10 @@ report:
 notification:
   # 启用的推送方式
   enabled_channels:
-    - email
+    # - email
     # - wechat
     # - dingtalk
+    - feishu
   
   # 邮件推送配置
   email:
@@ -128,6 +129,11 @@ notification:
   dingtalk:
     webhook_url: "https://oapi.dingtalk.com/robot/send?access_token=your_token"
     secret: "your_secret"
+  
+  # 飞书推送配置
+  feishu:
+    webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/your_webhook_token"
+    secret: ""  # 可选，如果设置了签名校验
   
   # 推送时间
   schedule:

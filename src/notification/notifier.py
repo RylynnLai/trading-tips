@@ -1,10 +1,10 @@
 """
 通知推送器
 
-支持多种推送渠道：邮件、微信、钉钉等
+支持多种推送渠道：邮件、微信、钉钉、飞书等
 """
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -14,6 +14,7 @@ import hashlib
 import time
 import base64
 import hmac
+import json
 from loguru import logger
 
 
@@ -260,6 +261,396 @@ class DingTalkNotifier(Notifier):
         return sign
 
 
+class FeishuNotifier(Notifier):
+    """
+    飞书通知器
+    """
+    
+    def __init__(self, config: Dict):
+        """
+        初始化飞书通知器
+        
+        Args:
+            config: 飞书配置字典
+        """
+        super().__init__(config)
+        feishu_config = config.get('feishu', {})
+        self.webhook_url = feishu_config.get('webhook_url')
+        self.secret = feishu_config.get('secret', '')
+        
+        logger.info("初始化飞书通知器")
+    
+    def send(self, message: str, title: str = "证券推荐", 
+             msg_type: str = "interactive") -> bool:
+        """
+        发送飞书通知
+        
+        Args:
+            message: 消息内容
+            title: 消息标题
+            msg_type: 消息类型 (text/post/interactive)
+            
+        Returns:
+            bool: 是否发送成功
+        """
+        logger.info(f"发送飞书通知: {title}")
+        
+        try:
+            # 生成签名（如果配置了secret）
+            timestamp = str(int(time.time()))
+            sign = self._generate_sign(timestamp) if self.secret else None
+            
+            # 根据消息类型构造不同的请求数据
+            if msg_type == "text":
+                data = self._build_text_message(message, sign, timestamp)
+            elif msg_type == "post":
+                data = self._build_post_message(message, title, sign, timestamp)
+            else:  # interactive (默认)
+                data = self._build_interactive_message(message, title, sign, timestamp)
+            
+            # 发送HTTP请求
+            headers = {'Content-Type': 'application/json'}
+            response = requests.post(
+                self.webhook_url,
+                headers=headers,
+                data=json.dumps(data),
+                timeout=10
+            )
+            
+            result = response.json()
+            
+            if result.get('code') == 0 or result.get('StatusCode') == 0:
+                logger.info("飞书通知发送成功")
+                return True
+            else:
+                logger.error(f"飞书通知发送失败: {result}")
+                return False
+            
+        except Exception as e:
+            logger.error(f"飞书通知发送失败: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return False
+    
+    def send_card(self, title: str, content_elements: List[Dict],
+                  header_color: str = "blue") -> bool:
+        """
+        发送卡片消息
+        
+        Args:
+            title: 卡片标题
+            content_elements: 内容元素列表
+            header_color: 标题背景色 (blue/wathet/turquoise/green/yellow/orange/red/carmine/violet/purple/indigo/grey)
+            
+        Returns:
+            bool: 是否发送成功
+        """
+        logger.info(f"发送飞书卡片消息: {title}")
+        
+        try:
+            # 生成签名
+            timestamp = str(int(time.time()))
+            sign = self._generate_sign(timestamp) if self.secret else None
+            
+            # 构造卡片消息
+            data = {
+                "msg_type": "interactive",
+                "card": {
+                    "header": {
+                        "title": {
+                            "tag": "plain_text",
+                            "content": title
+                        },
+                        "template": header_color
+                    },
+                    "elements": content_elements
+                }
+            }
+            
+            # 添加签名
+            if sign:
+                data["timestamp"] = timestamp
+                data["sign"] = sign
+            
+            # 发送HTTP请求
+            headers = {'Content-Type': 'application/json'}
+            response = requests.post(
+                self.webhook_url,
+                headers=headers,
+                data=json.dumps(data),
+                timeout=10
+            )
+            
+            result = response.json()
+            
+            if result.get('code') == 0 or result.get('StatusCode') == 0:
+                logger.info("飞书卡片消息发送成功")
+                return True
+            else:
+                logger.error(f"飞书卡片消息发送失败: {result}")
+                return False
+            
+        except Exception as e:
+            logger.error(f"飞书卡片消息发送失败: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return False
+    
+    def send_report_card(self, strategy_name: str, 
+                        recommendations: List[Dict],
+                        portfolio_stats: Optional[Dict] = None) -> bool:
+        """
+        发送推荐报告卡片
+        
+        Args:
+            strategy_name: 策略名称
+            recommendations: 推荐列表
+            portfolio_stats: 组合统计
+            
+        Returns:
+            bool: 是否发送成功
+        """
+        elements = []
+        
+        # 添加统计信息
+        if portfolio_stats:
+            fields = []
+            fields.append({
+                "is_short": True,
+                "text": {
+                    "tag": "lark_md",
+                    "content": f"**推荐数量**\n{portfolio_stats.get('portfolio_count', len(recommendations))}"
+                }
+            })
+            fields.append({
+                "is_short": True,
+                "text": {
+                    "tag": "lark_md",
+                    "content": f"**平均波动率**\n{portfolio_stats.get('avg_volatility', 0):.2f}%"
+                }
+            })
+            fields.append({
+                "is_short": True,
+                "text": {
+                    "tag": "lark_md",
+                    "content": f"**平均动量**\n{portfolio_stats.get('avg_momentum', 0):.2f}%"
+                }
+            })
+            
+            if 'expected_annual_return' in portfolio_stats:
+                fields.append({
+                    "is_short": True,
+                    "text": {
+                        "tag": "lark_md",
+                        "content": f"**预期年化收益**\n{portfolio_stats['expected_annual_return']}"
+                    }
+                })
+            
+            elements.append({
+                "tag": "div",
+                "fields": fields
+            })
+            
+            # 添加分割线
+            elements.append({
+                "tag": "hr"
+            })
+        
+        # 添加推荐列表
+        for i, rec in enumerate(recommendations[:5], 1):  # 只显示前5个
+            # 推荐标题
+            rank_emoji = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"][i-1]
+            
+            # 动量颜色
+            momentum = rec.get('momentum', 0)
+            momentum_color = "green" if momentum > 0 else "red"
+            momentum_sign = "+" if momentum > 0 else ""
+            
+            # 构建推荐内容
+            content_lines = [
+                f"{rank_emoji} **{rec.get('name', 'N/A')}** ({rec.get('code', 'N/A')})",
+                f"💰 当前价格: {rec.get('current_price', 'N/A')}",
+                f"⭐ 综合得分: {rec.get('score', 0):.2f}",
+                f"📊 波动率: {rec.get('volatility', 0):.2f}%",
+                f"📈 动量: <font color='{momentum_color}'>{momentum_sign}{momentum:.2f}%</font>",
+                f"💼 建议仓位: {rec.get('suggested_position', 'N/A')}"
+            ]
+            
+            # 添加推荐理由
+            reasons = rec.get('reasons', [])
+            if reasons:
+                content_lines.append("\n**推荐理由:**")
+                for reason in reasons[:3]:  # 最多显示3条理由
+                    content_lines.append(f"• {reason}")
+            
+            elements.append({
+                "tag": "div",
+                "text": {
+                    "tag": "lark_md",
+                    "content": "\n".join(content_lines)
+                }
+            })
+            
+            # 非最后一个添加分割线
+            if i < min(len(recommendations), 5):
+                elements.append({
+                    "tag": "hr"
+                })
+        
+        # 添加备注信息
+        from datetime import datetime
+        elements.append({
+            "tag": "note",
+            "elements": [
+                {
+                    "tag": "plain_text",
+                    "content": f"⚠️ 投资有风险，入市需谨慎。本报告仅供参考，不构成投资建议。\n生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                }
+            ]
+        })
+        
+        # 发送卡片
+        return self.send_card(
+            title=f"📊 {strategy_name} - 推荐报告",
+            content_elements=elements,
+            header_color="blue"
+        )
+    
+    def _build_text_message(self, message: str, sign: Optional[str], 
+                           timestamp: str) -> Dict:
+        """
+        构建纯文本消息
+        
+        Args:
+            message: 消息内容
+            sign: 签名
+            timestamp: 时间戳
+            
+        Returns:
+            Dict: 消息数据
+        """
+        data = {
+            "msg_type": "text",
+            "content": {
+                "text": message
+            }
+        }
+        
+        if sign:
+            data["timestamp"] = timestamp
+            data["sign"] = sign
+        
+        return data
+    
+    def _build_post_message(self, message: str, title: str,
+                           sign: Optional[str], timestamp: str) -> Dict:
+        """
+        构建富文本消息
+        
+        Args:
+            message: 消息内容
+            title: 标题
+            sign: 签名
+            timestamp: 时间戳
+            
+        Returns:
+            Dict: 消息数据
+        """
+        data = {
+            "msg_type": "post",
+            "content": {
+                "post": {
+                    "zh_cn": {
+                        "title": title,
+                        "content": [
+                            [
+                                {
+                                    "tag": "text",
+                                    "text": message
+                                }
+                            ]
+                        ]
+                    }
+                }
+            }
+        }
+        
+        if sign:
+            data["timestamp"] = timestamp
+            data["sign"] = sign
+        
+        return data
+    
+    def _build_interactive_message(self, message: str, title: str,
+                                   sign: Optional[str], timestamp: str) -> Dict:
+        """
+        构建交互式卡片消息
+        
+        Args:
+            message: 消息内容
+            title: 标题
+            sign: 签名
+            timestamp: 时间戳
+            
+        Returns:
+            Dict: 消息数据
+        """
+        data = {
+            "msg_type": "interactive",
+            "card": {
+                "header": {
+                    "title": {
+                        "tag": "plain_text",
+                        "content": title
+                    },
+                    "template": "blue"
+                },
+                "elements": [
+                    {
+                        "tag": "div",
+                        "text": {
+                            "tag": "lark_md",
+                            "content": message
+                        }
+                    }
+                ]
+            }
+        }
+        
+        if sign:
+            data["timestamp"] = timestamp
+            data["sign"] = sign
+        
+        return data
+    
+    def _generate_sign(self, timestamp: str) -> str:
+        """
+        生成飞书机器人签名
+        
+        Args:
+            timestamp: 时间戳
+            
+        Returns:
+            str: 签名字符串
+        """
+        if not self.secret:
+            return ""
+        
+        # 拼接timestamp和secret
+        string_to_sign = f"{timestamp}\n{self.secret}"
+        
+        # 使用HmacSHA256算法计算签名
+        hmac_code = hmac.new(
+            string_to_sign.encode("utf-8"),
+            digestmod=hashlib.sha256
+        ).digest()
+        
+        # 对签名进行base64编码
+        sign = base64.b64encode(hmac_code).decode('utf-8')
+        
+        return sign
+
+
 class NotificationManager:
     """
     通知管理器
@@ -287,6 +678,9 @@ class NotificationManager:
         
         if 'dingtalk' in self.enabled_channels:
             self.notifiers.append(DingTalkNotifier(config))
+        
+        if 'feishu' in self.enabled_channels:
+            self.notifiers.append(FeishuNotifier(config))
         
         logger.info(f"通知管理器初始化完成，共{len(self.notifiers)}个通知渠道")
     
