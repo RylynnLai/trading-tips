@@ -25,14 +25,24 @@ class TradingTipsApp:
     证券推荐系统主应用类
     """
     
-    def __init__(self, config_path: str = 'config/config.yaml'):
+    def __init__(self, config_path: str = None, config: dict = None):
         """
         初始化应用
         
         Args:
-            config_path: 配置文件路径
+            config_path: 配置文件路径（如果提供，将从文件加载配置）
+            config: 配置字典（如果提供，将直接使用该配置，优先级高于config_path）
         """
-        self.config = self._load_config(config_path)
+        # 加载配置：优先使用传入的config字典，其次从文件加载
+        if config is not None:
+            self.config = config
+            logger.info("使用传入的配置字典")
+        elif config_path is not None:
+            self.config = self._load_config(config_path)
+        else:
+            # 默认从config/config.yaml加载
+            self.config = self._load_config('config/config.yaml')
+        
         self._setup_logging()
         self._init_modules()
         

@@ -2,6 +2,15 @@
 
 一个自动化的证券交易分析和推荐系统，通过数据分析、回测验证，推送值得买入的证券信息。
 
+## ✨ 特性
+
+- 🤖 **自动化运行**：支持青龙面板订阅，定时自动执行
+- 📊 **多维分析**：技术指标 + 基本面分析双重验证
+- 📈 **回测验证**：历史数据回测，验证策略有效性
+- 📨 **多渠道推送**：支持邮件、微信、钉钉等多种推送方式
+- 🔧 **灵活配置**：支持配置文件或环境变量两种配置方式
+- 📝 **详细报告**：生成HTML/JSON格式的分析报告
+
 ## 项目结构
 
 ```
@@ -53,18 +62,54 @@ trading-tips/
 
 ## 快速开始
 
-### 安装依赖
+### 方式一：本地运行
+
+#### 安装依赖
 ```bash
 pip install -r requirements.txt
 ```
 
-### 配置
+#### 配置
 编辑 `config/config.yaml` 文件，配置数据源、策略参数和推送方式。
 
-### 运行
+#### 运行
 ```bash
 python src/main.py
 ```
+
+### 方式二：青龙面板（推荐）
+
+支持在青龙面板中订阅运行，实现定时自动化执行。
+
+#### 快速添加订阅
+
+1. 登录青龙面板
+2. 进入「订阅管理」，点击「新建订阅」
+3. 填写以下信息：
+   - **名称**：证券交易推荐系统
+   - **链接**：`https://github.com/RylynnLai/trading-tips.git`
+   - **分支**：`main`
+   - **定时规则**：`0 9 * * *`（每天早上9点执行）
+   - **拉取文件**：`ql_task.py`
+
+#### 配置环境变量
+
+在青龙面板的「环境变量」中添加：
+
+```bash
+# 必需配置
+DATA_SOURCE_API_KEY=your_tushare_token
+
+# 可选配置
+TOP_N_STOCKS=10
+EMAIL_ENABLED=true
+EMAIL_SMTP_SERVER=smtp.gmail.com
+EMAIL_USERNAME=your@email.com
+EMAIL_PASSWORD=your_password
+EMAIL_TO=recipient@email.com
+```
+
+📖 **详细文档**：[青龙面板使用指南](docs/QINGLONG.md)
 
 ## 开发计划
 
