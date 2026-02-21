@@ -5,7 +5,7 @@ data_source:
   # 数据源类型：akshare（国内市场）, yfinance（全球市场）, twelvedata（全球市场+外汇+加密货币）
   provider: "tushare"
   # API配置（twelvedata 需要 API key）
-  api_key: "your_api_key_here"
+  api_key: "9fe93e2197664306a03d90d4d859f26f"
   # 数据更新频率（分钟）
   update_interval: 60
   # 缓存配置
@@ -46,6 +46,34 @@ analysis:
     max_price: 1000.0   # 最高价格
     min_volume: 1000000 # 最小成交量
     min_market_cap: 1000000000  # 最小市值（元）
+  
+  # 策略配置
+  strategies:
+    # 低波债券轮动策略
+    low_volatility_rotation:
+      enabled: true
+      volatility_window: 60     # 波动率计算窗口（交易日）
+      momentum_window: 20       # 动量计算窗口（交易日）
+      low_vol_percentile: 30    # 低波百分位（选择波动率最低的30%）
+      top_n: 10                 # 推荐数量
+      min_liquidity: 10000000   # 最小日均成交额（元）
+      max_position_pct: 15      # 单只最大持仓比例（%）
+      stop_loss_pct: 3          # 止损比例（%）
+      min_momentum: 0           # 最小动量要求（%，正数表示收益为正）
+      
+      # 候选池配置
+      candidate_pool:
+        # 债券ETF代码列表（示例）
+        bond_etfs:
+          - "511010"  # 国债ETF
+          - "511260"  # 上证10年期国债ETF
+          - "511220"  # 城投债ETF
+        # 债券基金关键词（用于筛选）
+        keywords:
+          - "短债"
+          - "中短债"
+          - "纯债"
+          - "信用债"
 
 # 回测配置
 backtest:

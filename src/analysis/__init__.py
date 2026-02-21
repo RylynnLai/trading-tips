@@ -5,5 +5,13 @@
 """
 
 from .analyzer import Analyzer, TechnicalAnalyzer, FundamentalAnalyzer
+from .base_strategy import BaseStrategy
+from .low_volatility_rotation import LowVolatilityRotation
 
-__all__ = ['Analyzer', 'TechnicalAnalyzer', 'FundamentalAnalyzer']
+__all__ = [
+    'Analyzer', 
+    'TechnicalAnalyzer', 
+    'FundamentalAnalyzer',
+    'BaseStrategy',
+    'LowVolatilityRotation'
+]
