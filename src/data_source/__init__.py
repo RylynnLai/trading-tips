@@ -5,5 +5,13 @@
 """
 
 from .data_fetcher import DataFetcher
+from .base_provider import BaseProvider
+from .akshare_provider import AkShareProvider
+from .yfinance_provider import YFinanceProvider
 
-__all__ = ['DataFetcher']
+__all__ = [
+    'DataFetcher', 
+    'BaseProvider',
+    'AkShareProvider', 
+    'YFinanceProvider'
+]
