@@ -2,9 +2,9 @@
 
 # 数据源配置
 data_source:
-  # 数据源类型：tushare, akshare, yfinance等
+  # 数据源类型：akshare（国内市场）, yfinance（全球市场）, twelvedata（全球市场+外汇+加密货币）
   provider: "tushare"
-  # API配置
+  # API配置（twelvedata 需要 API key）
   api_key: "your_api_key_here"
   # 数据更新频率（分钟）
   update_interval: 60

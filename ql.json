@@ -21,7 +21,7 @@
   "envs": [
     {
       "name": "DATA_SOURCE_PROVIDER",
-      "desc": "数据源提供商（tushare/akshare/yfinance）",
+      "desc": "数据源提供商（akshare/yfinance/twelvedata）",
       "default": "tushare",
       "required": false
     },

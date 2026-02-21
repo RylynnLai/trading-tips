@@ -10,6 +10,7 @@ from loguru import logger
 
 from .akshare_provider import AkShareProvider
 from .yfinance_provider import YFinanceProvider
+from .twelvedata_provider import TwelveDataProvider
 
 
 class DataFetcher:
@@ -49,6 +50,8 @@ class DataFetcher:
             return AkShareProvider(self.config)
         elif self.provider_name == 'yfinance':
             return YFinanceProvider(self.config)
+        elif self.provider_name == 'twelvedata':
+            return TwelveDataProvider(self.config)
         elif self.provider_name == 'tushare':
             logger.warning("Tushare 数据源尚未实现，使用 AkShare 作为替代")
             return AkShareProvider(self.config)

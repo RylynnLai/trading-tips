@@ -62,8 +62,14 @@ pip3 install -r requirements.txt
 
 | 环境变量 | 说明 | 默认值 |
 |---------|------|--------|
-| `DATA_SOURCE_PROVIDER` | 数据源提供商 | `tushare` |
+| `DATA_SOURCE_PROVIDER` | 数据源提供商（akshare/yfinance/twelvedata） | `tushare` |
+| `DATA_SOURCE_API_KEY` | 数据源API密钥（twelvedata需要） | - |
 | `TOP_N_STOCKS` | 推荐股票数量 | `10` |
+
+**数据源说明：**
+- `akshare`: 免费，无需API key，支持A股、港股、基金
+- `yfinance`: 免费，无需API key，支持全球市场
+- `twelvedata`: 需要API key（免费版800次/天），支持全球股票、外汇、加密货币
 
 #### 邮件推送配置
 

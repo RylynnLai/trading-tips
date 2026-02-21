@@ -8,10 +8,12 @@ from .data_fetcher import DataFetcher
 from .base_provider import BaseProvider
 from .akshare_provider import AkShareProvider
 from .yfinance_provider import YFinanceProvider
+from .twelvedata_provider import TwelveDataProvider
 
 __all__ = [
     'DataFetcher', 
     'BaseProvider',
     'AkShareProvider', 
-    'YFinanceProvider'
+    'YFinanceProvider',
+    'TwelveDataProvider'
 ]

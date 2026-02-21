@@ -3,7 +3,7 @@
 """
 数据源模块测试脚本
 
-测试 AkShare 和 YFinance 数据源功能
+测试 AkShare、YFinance 和 Twelve Data 数据源功能
 """
 
 import sys
@@ -103,6 +103,58 @@ def test_yfinance():
         print(f"总共 {len(stock_data)} 条数据\n")
 
 
+def test_twelvedata():
+    """测试 Twelve Data 数据源"""
+    logger.info("=" * 60)
+    logger.info("测试 Twelve Data 数据源")
+    logger.info("=" * 60)
+    
+    # 注意：需要设置有效的 API key
+    config = {
+        'provider': 'twelvedata',
+        'api_key': 'your_twelvedata_api_key',  # 请替换为真实的 API key
+        'cache': {'enabled': True}
+    }
+    
+    fetcher = DataFetcher(config)
+    
+    # 测试获取美股数据
+    logger.info("\n1. 获取苹果(AAPL)最近30天数据...")
+    stock_data = fetcher.fetch_stock_data('AAPL', '2024-01-01', '2024-01-30')
+    if not stock_data.empty:
+        print(stock_data.head())
+        print(f"总共 {len(stock_data)} 条数据\n")
+    
+    # 测试获取实时行情
+    logger.info("\n2. 获取苹果和微软实时行情...")
+    realtime = fetcher.fetch_realtime_data(['AAPL', 'MSFT'])
+    if not realtime.empty:
+        print(realtime[['code', 'name', 'price', 'change_pct']])
+        print()
+    
+    # 测试获取基本信息
+    logger.info("\n3. 获取苹果基本信息...")
+    info = fetcher.fetch_fundamental_data('AAPL')
+    if info:
+        for key, value in info.items():
+            print(f"{key}: {value}")
+        print()
+    
+    # 测试获取外汇数据
+    logger.info("\n4. 获取欧元/美元外汇数据...")
+    forex_data = fetcher.fetch_stock_data('EUR/USD', '2024-01-01', '2024-01-30')
+    if not forex_data.empty:
+        print(forex_data.head())
+        print(f"总共 {len(forex_data)} 条数据\n")
+    
+    # 测试获取加密货币数据
+    logger.info("\n5. 获取比特币/美元数据...")
+    crypto_data = fetcher.fetch_stock_data('BTC/USD', '2024-01-01', '2024-01-30')
+    if not crypto_data.empty:
+        print(crypto_data.head())
+        print(f"总共 {len(crypto_data)} 条数据\n")
+
+
 def test_switch_provider():
     """测试切换数据源"""
     logger.info("=" * 60)
@@ -145,6 +197,9 @@ def main():
         
         # 测试 YFinance
         # test_yfinance()
+        
+        # 测试 Twelve Data（需要设置有效的 API key）
+        # test_twelvedata()
         
         # 测试切换数据源
         # test_switch_provider()
