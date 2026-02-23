@@ -143,6 +143,9 @@ class TradingTipsApp:
         self.local_data_dir = Path(self.config.get('data_source', {}).get('local_data_dir', 
                                    '~/.qlib/qlib_data/cn_data')).expanduser()
         
+        # 初始化股票名称映射
+        self.stock_names = {}
+        
         logger.info("所有功能模块初始化完成")
     
     def run(self):
@@ -204,27 +207,42 @@ class TradingTipsApp:
         if self.use_local_data:
             # 从本地加载数据
             logger.info(f"从本地目录加载数据: {self.local_data_dir}")
-            stock_data = self._load_local_data()
+            stock_data, self.stock_names = self._load_local_data()
         else:
             # 从API获取数据
             logger.info("从API获取实时数据")
-            stock_data = self._fetch_online_data()
+            stock_data, self.stock_names = self._fetch_online_data()
         
         logger.info(f"成功获取 {len(stock_data)} 只股票的数据")
         return stock_data
     
-    def _load_local_data(self) -> Dict[str, pd.DataFrame]:
+    def _load_local_data(self):
         """
         从本地CSV文件加载数据
         
         Returns:
-            Dict[str, pd.DataFrame]: 股票数据字典
+            Tuple[Dict[str, pd.DataFrame], Dict[str, str]]: 股票数据字典和股票名称映射
         """
         stock_data = {}
+        stock_names = {}
         
         if not self.local_data_dir.exists():
             logger.error(f"本地数据目录不存在: {self.local_data_dir}")
-            return stock_data
+            return stock_data, stock_names
+        
+        # 尝试获取股票列表以获得名称映射
+        try:
+            market = self.config.get('analysis', {}).get('market', 'A')
+            stock_list_df = self.data_fetcher.fetch_stock_list(market)
+            if not stock_list_df.empty:
+                for _, row in stock_list_df.iterrows():
+                    code = row.get('code', row.get('代码', ''))
+                    name = row.get('name', row.get('名称', ''))
+                    if code and name:
+                        stock_names[code] = name
+                logger.info(f"获取到 {len(stock_names)} 只股票的名称映射")
+        except Exception as e:
+            logger.warning(f"获取股票名称映射失败: {e}")
         
         csv_files = list(self.local_data_dir.glob("*.csv"))
         logger.info(f"找到 {len(csv_files)} 个数据文件")
@@ -257,20 +275,24 @@ class TradingTipsApp:
                 
                 if not df.empty and len(df) >= 60:  # 至少需要60个交易日
                     stock_data[stock_code] = df
+                    # 如果名称映射中没有，设置为股票代码
+                    if stock_code not in stock_names:
+                        stock_names[stock_code] = stock_code
                     
             except Exception as e:
                 logger.warning(f"加载 {csv_file.name} 失败: {e}")
         
-        return stock_data
+        return stock_data, stock_names
     
-    def _fetch_online_data(self) -> Dict[str, pd.DataFrame]:
+    def _fetch_online_data(self):
         """
         从在线API获取数据
         
         Returns:
-            Dict[str, pd.DataFrame]: 股票数据字典
+            Tuple[Dict[str, pd.DataFrame], Dict[str, str]]: 股票数据字典和股票名称映射
         """
         stock_data = {}
+        stock_names = {}
         
         # 获取股票列表
         market = self.config.get('analysis', {}).get('market', 'A')
@@ -278,20 +300,21 @@ class TradingTipsApp:
         
         if stock_list.empty:
             logger.error("未能获取股票列表")
-            return stock_data
+            return stock_data, stock_names
         
         # 限制数量
         max_stocks = self.config.get('analysis', {}).get('max_stocks', 50)
         stock_list = stock_list.head(max_stocks)
         
-        # 日期配置
+        # 日期配置 - 分析最近一年的数据
         end_date = datetime.now().strftime('%Y-%m-%d')
-        start_date = (datetime.now() - timedelta(days=365*2)).strftime('%Y-%m-%d')
+        start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
         
         # 获取每只股票的数据
         for idx, row in stock_list.iterrows():
             try:
-                symbol = row.get('代码', row.get('symbol', ''))
+                symbol = row.get('code', row.get('代码', row.get('symbol', '')))
+                name = row.get('name', row.get('名称', symbol))
                 
                 df = self.data_fetcher.fetch_stock_data(
                     symbol=symbol,
@@ -301,11 +324,12 @@ class TradingTipsApp:
                 
                 if not df.empty and len(df) >= 60:
                     stock_data[symbol] = df
+                    stock_names[symbol] = name
                     
             except Exception as e:
                 logger.warning(f"获取 {symbol} 数据失败: {e}")
         
-        return stock_data
+        return stock_data, stock_names
     
     def _collect_data_info(self, stock_data: Dict[str, pd.DataFrame]) -> Dict:
         """
@@ -377,6 +401,25 @@ class TradingTipsApp:
         
         # 使用趋势跟随策略进行批量分析
         recommendations = self.trend_strategy.batch_analyze(stock_data)
+        
+        # 为每个推荐添加股票名称和分析时间段信息
+        for rec in recommendations:
+            symbol = rec.get('symbol', '')
+            # 添加股票中文名称
+            rec['stock_name'] = self.stock_names.get(symbol, symbol)
+            
+            # 添加分析时间段信息
+            if symbol in stock_data:
+                df = stock_data[symbol]
+                if not df.empty:
+                    dates = df.index if isinstance(df.index, pd.DatetimeIndex) else pd.to_datetime(df['date']) if 'date' in df.columns else None
+                    if dates is not None:
+                        analysis_start = dates.min()
+                        analysis_end = dates.max()
+                        rec['analysis_period'] = f"{analysis_start.strftime('%Y-%m-%d')} 至 {analysis_end.strftime('%Y-%m-%d')}"
+                        rec['analysis_start_date'] = analysis_start.strftime('%Y-%m-%d')
+                        rec['analysis_end_date'] = analysis_end.strftime('%Y-%m-%d')
+                        rec['analysis_days'] = len(dates)
         
         # 过滤和排序
         min_score = self.config.get('analysis', {}).get('min_score', 60)

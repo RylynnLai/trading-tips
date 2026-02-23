@@ -235,17 +235,31 @@ class ReportGenerator:
             for idx, rec in enumerate(recommendations, 1):
                 # 推荐标题
                 symbol = rec.get('symbol', '未知')
+                stock_name = rec.get('stock_name', symbol)  # 获取中文名称
                 strategy = rec.get('strategy', '未知策略')
                 priority = rec.get('priority', '⭐')
                 score = rec.get('score', 0)
                 
-                lines.append(f"### {idx}. {symbol} - {strategy} {priority}")
+                # 显示股票代码和名称
+                if stock_name != symbol:
+                    lines.append(f"### {idx}. {stock_name} ({symbol}) - {strategy} {priority}")
+                else:
+                    lines.append(f"### {idx}. {symbol} - {strategy} {priority}")
                 lines.append("")
                 
                 # 基本信息表格
                 lines.append("| 项目 | 数值 |")
                 lines.append("|------|------|")
                 lines.append(f"| 💯 **综合评分** | **{score}** 分 |")
+                
+                # 添加分析时间段信息
+                analysis_period = rec.get('analysis_period')
+                if analysis_period:
+                    lines.append(f"| 📅 分析时间段 | {analysis_period} |")
+                
+                analysis_days = rec.get('analysis_days')
+                if analysis_days:
+                    lines.append(f"| 📊 分析天数 | {analysis_days} 个交易日 |")
                 
                 current_price = rec.get('current_price', 'N/A')
                 lines.append(f"| 💰 当前价格 | {current_price} |")
@@ -774,8 +788,8 @@ class ReportGenerator:
             return "<p>暂无推荐</p>"
         
         rows = []
-        for rec in recommendations:
-            rank = rec.get('rank', 0)
+        for idx, rec in enumerate(recommendations, 1):
+            rank = idx
             rank_class = ""
             if rank == 1:
                 rank_class = "top-1"
@@ -783,6 +797,11 @@ class ReportGenerator:
                 rank_class = "top-2"
             elif rank == 3:
                 rank_class = "top-3"
+            
+            # 获取股票信息
+            symbol = rec.get('symbol', rec.get('code', 'N/A'))
+            stock_name = rec.get('stock_name', rec.get('name', symbol))
+            analysis_period = rec.get('analysis_period', 'N/A')
             
             # 格式化推荐理由
             reasons = rec.get('reasons', [])
@@ -799,7 +818,11 @@ class ReportGenerator:
             row = f"""
             <tr>
                 <td><span class="rank-badge {rank_class}">{rank}</span></td>
-                <td><strong>{rec.get('name', 'N/A')}</strong><br><small>{rec.get('code', 'N/A')}</small></td>
+                <td>
+                    <strong>{stock_name}</strong><br>
+                    <small>{symbol}</small><br>
+                    <small style="color: #666;">📅 {analysis_period}</small>
+                </td>
                 <td>{rec.get('current_price', 'N/A')}</td>
                 <td><span class="badge badge-success">{rec.get('score', 0):.2f}</span></td>
                 <td>{volatility:.2f}%</td>
@@ -815,7 +838,7 @@ class ReportGenerator:
             <thead>
                 <tr>
                     <th>排名</th>
-                    <th>名称/代码</th>
+                    <th>名称/代码/分析时间段</th>
                     <th>当前价格</th>
                     <th>综合得分</th>
                     <th>波动率</th>
