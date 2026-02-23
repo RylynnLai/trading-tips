@@ -50,7 +50,26 @@ pip3 install -r requirements.txt
 
 在青龙面板中配置环境变量：
 
+### 核心配置
+
+| 环境变量 | 说明 | 默认值 | 必需 |
+|---------|------|--------|------|
+| `TASK_MODE` | 任务模式（full/quick/test） | `full` | 否 |
+| `USE_LOCAL_DATA` | 是否使用本地数据 | `true` | 否 |
+| `MAX_STOCKS` | 最大分析股票数量 | `100` | 否 |
+| `MIN_SCORE` | 最低推荐分数（0-100） | `60` | 否 |
+| `ENABLE_NOTIFICATION` | 是否启用通知推送 | `true` | 否 |
+| `ENABLE_BACKTEST` | 是否启用回测验证 | `false` | 否 |
+| `DEBUG_MODE` | 是否启用调试模式 | `false` | 否 |
+
+**任务模式说明：**
+- `full`: 完整模式 - 完整分析 + 回测验证 + 通知推送（推荐生产环境使用）
+- `quick`: 快速模式 - 仅分析和推送，跳过回测（适合快速查看）
+- `test`: 测试模式 - 仅分析少量股票，用于测试配置
+
 ### 必需配置
+
+对于使用在线API的情况：
 
 | 环境变量 | 说明 | 示例值 |
 |---------|------|--------|
@@ -124,6 +143,41 @@ pip3 install -r requirements.txt
    - **定时规则**：`0 9 * * *`（每天早上9点）
 4. 点击「确定」保存
 
+### 高级任务配置
+
+支持在命令中直接传递参数，无需配置环境变量：
+
+```bash
+# 完整模式：分析100只股票，分数≥70，启用通知
+python3 /ql/scripts/trading-tips/ql_task.py --mode full --max-stocks 100 --min-score 70 --notify
+
+# 快速模式：分析50只股票，分数≥60
+python3 /ql/scripts/trading-tips/ql_task.py --mode quick --max-stocks 50 --min-score 60
+
+# 测试模式：仅分析10只股票，不发送通知
+python3 /ql/scripts/trading-tips/ql_task.py --mode test --max-stocks 10 --no-notify
+
+# 使用本地数据，启用回测
+python3 /ql/scripts/trading-tips/ql_task.py --local --backtest --max-stocks 30
+
+# 调试模式：输出详细日志
+python3 /ql/scripts/trading-tips/ql_task.py --debug --mode test
+```
+
+**命令行参数说明：**
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--mode` | 任务模式（full/quick/test） | full |
+| `--local` | 使用本地数据 | true |
+| `--max-stocks` | 最大分析股票数量 | 100 |
+| `--min-score` | 最低推荐分数 | 60 |
+| `--notify` | 启用通知推送 | 启用 |
+| `--no-notify` | 禁用通知推送 | - |
+| `--backtest` | 启用回测验证 | 禁用 |
+| `--no-backtest` | 禁用回测验证 | - |
+| `--debug` | 启用调试模式 | 禁用 |
+
 ### 定时规则说明
 
 定时规则使用 Cron 表达式：
@@ -147,37 +201,193 @@ pip3 install -r requirements.txt
 
 ## 查看运行日志
 
-1. 在「定时任务」页面找到对应任务
-2. 点击「日志」按钮查看运行日志
-3. 也可以在服务器上查看日志文件：`/ql/scripts/trading-tips/logs/trading_tips.log`
+### 日志位置
+
+1. **青龙面板日志**：在「定时任务」页面找到对应任务，点击「日志」按钮
+2. **应用日志文件**：`/ql/scripts/trading-tips/logs/ql_task_YYYY-MM-DD.log`
+3. **任务结果文件**：`/ql/scripts/trading-tips/data/task_results/ql_task_*.json`
+4. **分析报告**：`/ql/scripts/trading-tips/data/reports/trend_following_*.json`
+
+### 查看日志命令
+
+```bash
+# 查看今天的日志
+cat /ql/scripts/trading-tips/logs/ql_task_$(date +%Y-%m-%d).log
+
+# 实时查看日志
+tail -f /ql/scripts/trading-tips/logs/ql_task_$(date +%Y-%m-%d).log
+
+# 查看最新的任务结果
+cat /ql/scripts/trading-tips/data/task_results/ql_task_*.json | tail -1 | python3 -m json.tool
+
+# 查看最新的分析报告
+cat /ql/scripts/trading-tips/data/reports/trend_following_*.json | tail -1 | python3 -m json.tool
+```
+
+## 使用示例
+
+### 场景一：每日股票推荐（生产环境）
+
+**配置环境变量：**
+```bash
+TASK_MODE=full
+USE_LOCAL_DATA=true
+MAX_STOCKS=100
+MIN_SCORE=70
+ENABLE_NOTIFICATION=true
+ENABLE_BACKTEST=false
+```
+
+**定时任务命令：**
+```bash
+python3 /ql/scripts/trading-tips/ql_task.py
+```
+
+**定时规则：** `0 9 * * 1-5`（工作日早上9点）
+
+---
+
+### 场景二：盘中快速检查
+
+**直接运行命令：**
+```bash
+python3 /ql/scripts/trading-tips/ql_task.py --mode quick --max-stocks 50 --min-score 60
+```
+
+**定时规则：** `0 11,14 * * 1-5`（工作日上午11点和下午2点）
+
+---
+
+### 场景三：周末回测分析
+
+**配置环境变量：**
+```bash
+TASK_MODE=full
+ENABLE_BACKTEST=true
+MAX_STOCKS=30
+MIN_SCORE=65
+```
+
+**定时任务命令：**
+```bash
+python3 /ql/scripts/trading-tips/ql_task.py --backtest
+```
+
+**定时规则：** `0 10 * * 6`（每周六上午10点）
+
+---
+
+### 场景四：新手测试配置
+
+**直接运行命令：**
+```bash
+# 测试模式：仅分析10只股票，不发送通知
+python3 /ql/scripts/trading-tips/ql_task.py --mode test --no-notify --debug
+```
+
+手动执行一次，查看日志确认配置正确后，再设置为定时任务。
 
 ## 常见问题
 
-### 1. 如何获取数据源API密钥？
+### 1. 如何选择合适的任务模式？
+
+- **full 模式**：适合生产环境，完整分析流程，结果最准确
+- **quick 模式**：适合盘中快速查看，跳过耗时的回测
+- **test 模式**：适合测试配置，仅分析少量股票
+
+### 2. 本地数据和在线API有什么区别？
+
+- **本地数据**（推荐）：
+  - ✅ 速度快，不受API限制
+  - ✅ 可离线运行
+  - ❌ 需要预先下载数据
+  - 适合：已有数据文件的情况
+
+- **在线API**：
+  - ✅ 实时数据
+  - ✅ 无需预先准备
+  - ❌ 受API调用限制
+  - ❌ 需要网络连接
+  - 适合：初次使用或需要实时数据
+
+### 3. 如何获取数据源API密钥？
+
+**AKShare**（推荐）：
+- 免费，无需API密钥
+- 支持A股、港股、基金等
+- 设置：`DATA_SOURCE_PROVIDER=akshare`
 
 **Tushare**：
 1. 访问 [Tushare官网](https://tushare.pro/)
 2. 注册账号并登录
 3. 在个人中心获取API Token
-4. 将Token配置到环境变量 `DATA_SOURCE_API_KEY`
+4. 设置：`DATA_SOURCE_API_KEY=your_token`
 
-### 2. 任务执行失败怎么办？
+**TwelveData**：
+1. 访问 [TwelveData](https://twelvedata.com/)
+2. 注册获取免费API密钥（800次/天）
+3. 设置：`DATA_SOURCE_API_KEY=your_api_key`
 
-1. 检查环境变量是否配置正确
-2. 查看日志文件确认错误信息
-3. 确认依赖包是否正确安装：`pip3 list | grep -E "pandas|numpy|requests"`
-4. 手动执行测试：`python3 /ql/scripts/trading-tips/ql_task.py`
+### 4. 任务执行失败怎么办？
 
-### 3. 如何测试推送是否正常？
+1. **查看日志**: 
+   ```bash
+   cat /ql/scripts/trading-tips/logs/ql_task_$(date +%Y-%m-%d).log
+   ```
 
-可以先配置一个推送渠道（如Server酱微信推送），然后手动运行任务测试：
+2. **检查环境变量**: 确认所有必需的环境变量已配置
+
+3. **测试模式运行**:
+   ```bash
+   python3 /ql/scripts/trading-tips/ql_task.py --mode test --debug
+   ```
+
+4. **检查依赖**:
+   ```bash
+   pip3 list | grep -E "pandas|numpy|akshare"
+   ```
+
+5. **查看任务结果**:
+   ```bash
+   cat /ql/scripts/trading-tips/data/task_results/ql_task_*.json | tail -1 | python3 -m json.tool
+   ```
+
+### 5. 如何测试推送是否正常？
+
+1. **配置一个推送渠道**（如钉钉或飞书）
+2. **运行测试命令**:
+   ```bash
+   cd /ql/scripts/trading-tips
+   python3 ql_task.py --mode test --notify
+   ```
+3. **查看是否收到推送消息**
+
+### 6. 如何调整推荐条件？
+
+通过环境变量调整：
 
 ```bash
-cd /ql/scripts/trading-tips
-python3 ql_task.py
+# 提高推荐门槛
+MIN_SCORE=75
+
+# 增加推荐数量
+TOP_N_STOCKS=20
+
+# 扩大分析范围
+MAX_STOCKS=200
 ```
 
-查看是否收到推送消息。
+或在命令行中直接指定：
+```bash
+python3 ql_task.py --max-stocks 200 --min-score 75
+```
+
+### 7. 任务结果在哪里查看？
+
+1. **JSON格式报告**: `data/reports/trend_following_*.json`
+2. **任务执行摘要**: `data/task_results/ql_task_*.json`
+3. **日志文件**: `logs/ql_task_*.log`
+4. **推送消息**: 检查配置的通知渠道（邮件、微信、钉钉等）
 
 ### 4. 如何更新订阅？
 

@@ -1,132 +1,40 @@
 {
   "name": "证券交易推荐系统",
   "author": "Trading Tips Team",
-  "desc": "自动化证券交易分析和推荐系统，支持股票、基金等证券数据分析，提供技术指标分析、回测验证和多渠道推送功能",
+  "desc": "自动化证券交易分析和推荐系统",
   "version": "v0.1.0",
-  "icon": "https://raw.githubusercontent.com/RylynnLai/trading-tips/main/docs/icon.png",
-  "homepage": "https://github.com/RylynnLai/trading-tips",
-  "repo": "https://github.com/RylynnLai/trading-tips.git",
-  "branch": "main",
-  "type": "public",
-  "categories": ["股票", "基金", "量化"],
-  "platform": ["青龙面板", "Linux", "MacOS"],
   "tasks": [
     {
       "name": "证券推荐",
       "script": "ql_task.py",
       "cron": "0 9 * * *",
-      "desc": "每天早上9点执行证券分析和推荐"
+      "desc": "每天早上9点执行"
     }
   ],
   "envs": [
     {
-      "name": "DATA_SOURCE_PROVIDER",
-      "desc": "数据源提供商（akshare/yfinance/twelvedata）",
-      "default": "tushare",
+      "name": "TASK_MODE",
+      "desc": "任务模式",
+      "default": "full",
       "required": false
     },
     {
-      "name": "DATA_SOURCE_API_KEY",
-      "desc": "数据源API密钥（如tushare token）",
-      "default": "",
-      "required": true
-    },
-    {
-      "name": "BACKTEST_DAYS",
-      "desc": "回测天数",
-      "default": "365",
+      "name": "USE_LOCAL_DATA",
+      "desc": "使用本地数据",
+      "default": "true",
       "required": false
     },
     {
-      "name": "TOP_N_STOCKS",
-      "desc": "推荐股票数量",
-      "default": "10",
+      "name": "MAX_STOCKS",
+      "desc": "最大股票数",
+      "default": "100",
       "required": false
     },
     {
-      "name": "EMAIL_ENABLED",
-      "desc": "是否启用邮件推送（true/false）",
-      "default": "false",
-      "required": false
-    },
-    {
-      "name": "EMAIL_SMTP_SERVER",
-      "desc": "邮件SMTP服务器",
-      "default": "",
-      "required": false
-    },
-    {
-      "name": "EMAIL_SMTP_PORT",
-      "desc": "邮件SMTP端口",
-      "default": "587",
-      "required": false
-    },
-    {
-      "name": "EMAIL_USERNAME",
-      "desc": "邮件账号",
-      "default": "",
-      "required": false
-    },
-    {
-      "name": "EMAIL_PASSWORD",
-      "desc": "邮件密码",
-      "default": "",
-      "required": false
-    },
-    {
-      "name": "EMAIL_FROM",
-      "desc": "发件人地址",
-      "default": "",
-      "required": false
-    },
-    {
-      "name": "EMAIL_TO",
-      "desc": "收件人地址（多个用逗号分隔）",
-      "default": "",
-      "required": false
-    },
-    {
-      "name": "WECHAT_ENABLED",
-      "desc": "是否启用微信推送（true/false）",
-      "default": "false",
-      "required": false
-    },
-    {
-      "name": "WECHAT_WEBHOOK_URL",
-      "desc": "微信推送webhook URL（如Server酱）",
-      "default": "",
-      "required": false
-    },
-    {
-      "name": "DINGTALK_ENABLED",
-      "desc": "是否启用钉钉推送（true/false）",
-      "default": "false",
-      "required": false
-    },
-    {
-      "name": "DINGTALK_WEBHOOK_URL",
-      "desc": "钉钉机器人webhook URL",
-      "default": "",
-      "required": false
-    },
-    {
-      "name": "DINGTALK_SECRET",
-      "desc": "钉钉机器人加签密钥",
-      "default": "",
-      "required": false
-    },
-    {
-      "name": "LOG_LEVEL",
-      "desc": "日志级别（DEBUG/INFO/WARNING/ERROR）",
-      "default": "INFO",
+      "name": "MIN_SCORE",
+      "desc": "最低分数",
+      "default": "60",
       "required": false
     }
-  ],
-  "dependencies": [
-    "pandas>=2.0.0",
-    "numpy>=1.24.0",
-    "requests>=2.31.0",
-    "pyyaml>=6.0",
-    "loguru>=0.7.0"
   ]
 }

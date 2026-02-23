@@ -2,12 +2,18 @@
 数据分析器
 
 包含技术分析和基本面分析功能
+整合了趋势分析、信号检测等模块
 """
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 import pandas as pd
 import numpy as np
 from loguru import logger
+
+# 导入新的分析模块
+from .indicators import TechnicalIndicators, calculate_annual_return
+from .trend_analyzer import TrendAnalyzer
+from .signal_detector import SignalDetector
 
 
 class Analyzer:
@@ -46,7 +52,7 @@ class TechnicalAnalyzer(Analyzer):
     """
     技术分析器
     
-    实现各种技术指标的计算和买入信号的生成
+    整合了趋势分析、技术指标计算和信号检测功能
     """
     
     def __init__(self, config: Dict):
@@ -57,22 +63,50 @@ class TechnicalAnalyzer(Analyzer):
             config: 配置字典
         """
         super().__init__(config)
-        logger.info("初始化技术分析器")
+        
+        # 初始化各个分析模块
+        self.indicator_calculator = TechnicalIndicators()
+        self.trend_analyzer = TrendAnalyzer(config.get('trend_analyzer', {}))
+        self.signal_detector = SignalDetector(config.get('signal_detector', {}))
+        
+        # 参数配置
+        self.ma_periods = config.get('ma_periods', [20, 60, 120])
+        
+        logger.info("初始化技术分析器（含趋势分析模块）")
     
-    def calculate_ma(self, data: pd.DataFrame, periods: List[int]) -> pd.DataFrame:
+    def calculate_ma(self, data: pd.DataFrame, periods: List[int] = None) -> pd.DataFrame:
         """
         计算移动平均线
         
         Args:
             data: 价格数据
-            periods: 周期列表，如[5, 10, 20, 60]
+            periods: 周期列表，如[20, 60, 120]
             
         Returns:
             DataFrame: 添加了MA列的数据框
         """
-        # TODO: 实现MA计算
+        if periods is None:
+            periods = self.ma_periods
+        
         logger.debug(f"计算MA指标，周期: {periods}")
-        pass
+        return self.indicator_calculator.calculate_ma(data, periods)
+    
+    def calculate_ema(self, data: pd.DataFrame, periods: List[int] = None) -> pd.DataFrame:
+        """
+        计算指数移动平均线
+        
+        Args:
+            data: 价格数据
+            periods: 周期列表
+            
+        Returns:
+            DataFrame: 添加了EMA列的数据框
+        """
+        if periods is None:
+            periods = self.ma_periods
+        
+        logger.debug(f"计算EMA指标，周期: {periods}")
+        return self.indicator_calculator.calculate_ema(data, periods)
     
     def calculate_macd(self, data: pd.DataFrame, 
                       fast: int = 12, 
@@ -147,37 +181,25 @@ class TechnicalAnalyzer(Analyzer):
         logger.debug(f"计算布林带指标")
         pass
     
-    def calculate_volume_indicators(self, data: pd.DataFrame) -> pd.DataFrame:
+    def calculate_volume_indicators(self, data: pd.DataFrame, periods: List[int] = [5, 60]) -> pd.DataFrame:
         """
         计算成交量相关指标
         
         Args:
             data: 包含成交量的数据
+            periods: 均量周期
             
         Returns:
             DataFrame: 添加了成交量指标的数据框
         """
-        # TODO: 实现成交量指标计算
         logger.debug("计算成交量指标")
-        pass
-    
-    def generate_buy_signals(self, data: pd.DataFrame) -> pd.DataFrame:
-        """
-        生成买入信号
-        
-        Args:
-            data: 包含技术指标的数据
-            
-        Returns:
-            DataFrame: 添加了买入信号列的数据框
-        """
-        # TODO: 实现买入信号生成逻辑
-        logger.info("生成买入信号")
-        pass
+        return self.indicator_calculator.calculate_volume_indicators(data, periods)
     
     def calculate_all_indicators(self, data: pd.DataFrame) -> pd.DataFrame:
         """
         计算所有配置的技术指标
+        
+        包括：MA、EMA、抵扣价、乖离率、ATR、均线密集度、均线排列、均线斜率、成交量指标等
         
         Args:
             data: 原始价格数据
@@ -185,9 +207,98 @@ class TechnicalAnalyzer(Analyzer):
         Returns:
             DataFrame: 包含所有指标的数据框
         """
-        # TODO: 根据配置计算所有指标
         logger.info("计算所有技术指标")
-        pass
+        
+        # 使用新的指标计算器
+        df = self.indicator_calculator.calculate_all_indicators(
+            data,
+            ma_periods=self.ma_periods
+        )
+        
+        # 计算年化收益率
+        df = calculate_annual_return(df)
+        
+        return df
+    
+    def analyze_trend(self, data: pd.DataFrame, symbol: str = '') -> Dict:
+        """
+        趋势分析
+        
+        返回完整的趋势分析结果，包括：
+        - 趋势类型（密集成交区、稳定上涨、加速上涨等）
+        - 趋势阶段（转折、开始、发展、极端）
+        - 均线拐头预判
+        - 目标位和止损位
+        
+        Args:
+            data: 包含所有指标的价格数据
+            symbol: 标的代码
+            
+        Returns:
+            Dict: 趋势分析结果
+        """
+        logger.info(f"执行趋势分析: {symbol}")
+        return self.trend_analyzer.analyze_trend(data, symbol)
+    
+    def detect_signals(self, data: pd.DataFrame) -> Dict:
+        """
+        检测交易信号
+        
+        包括：
+        - 2B结构（趋势反转）
+        - 密集成交区突破
+        - 稳定趋势回撤
+        - 顶底构造
+        
+        Args:
+            data: 包含所有指标的价格数据
+            
+        Returns:
+            Dict: 信号检测结果
+        """
+        logger.info("检测交易信号")
+        return self.signal_detector.detect_all_signals(data)
+    
+    def comprehensive_analysis(self, data: pd.DataFrame, symbol: str = '') -> Dict:
+        """
+        综合分析（一站式分析）
+        
+        执行完整的技术分析流程：
+        1. 计算所有技术指标
+        2. 趋势分析
+        3. 信号检测
+        
+        Args:
+            data: 原始价格数据
+            symbol: 标的代码
+            
+        Returns:
+            Dict: 综合分析结果
+        """
+        logger.info(f"开始综合分析: {symbol}")
+        
+        # 1. 计算指标
+        df = self.calculate_all_indicators(data)
+        
+        # 2. 趋势分析
+        trend_analysis = self.analyze_trend(df, symbol)
+        
+        # 3. 信号检测
+        signals = self.detect_signals(df)
+        
+        # 4. 组合结果
+        result = {
+            'symbol': symbol,
+            'data': df,
+            'trend_analysis': trend_analysis,
+            'signals': signals,
+            'latest_price': df.iloc[-1]['收盘'] if '收盘' in df.columns else df.iloc[-1].get('close', 0),
+            'timestamp': df.index[-1] if len(df) > 0 else None
+        }
+        
+        logger.info(f"综合分析完成: {symbol}")
+        
+        return result
 
 
 class FundamentalAnalyzer(Analyzer):

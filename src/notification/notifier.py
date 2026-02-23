@@ -457,31 +457,62 @@ class FeishuNotifier(Notifier):
             })
         
         # 添加推荐列表
-        for i, rec in enumerate(recommendations[:5], 1):  # 只显示前5个
+        for i, rec in enumerate(recommendations[:10], 1):  # 显示前10个
             # 推荐标题
-            rank_emoji = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"][i-1]
-            
-            # 动量颜色
-            momentum = rec.get('momentum', 0)
-            momentum_color = "green" if momentum > 0 else "red"
-            momentum_sign = "+" if momentum > 0 else ""
+            if i <= 3:
+                rank_emoji = ["🥇", "🥈", "🥉"][i-1]
+            else:
+                rank_emoji = f"{i}️⃣"
             
             # 构建推荐内容
+            symbol = rec.get('symbol', 'N/A')
+            name = rec.get('name', symbol)
+            score = rec.get('score', 0)
+            current_price = rec.get('current_price', 0)
+            action = rec.get('action', 'N/A')
+            reason = rec.get('reason', 'N/A')
+            
             content_lines = [
-                f"{rank_emoji} **{rec.get('name', 'N/A')}** ({rec.get('code', 'N/A')})",
-                f"💰 当前价格: {rec.get('current_price', 'N/A')}",
-                f"⭐ 综合得分: {rec.get('score', 0):.2f}",
-                f"📊 波动率: {rec.get('volatility', 0):.2f}%",
-                f"📈 动量: <font color='{momentum_color}'>{momentum_sign}{momentum:.2f}%</font>",
-                f"💼 建议仓位: {rec.get('suggested_position', 'N/A')}"
+                f"{rank_emoji} **{name}** ({symbol})",
+                f"📊 **推荐**: {action} | **得分**: {score:.1f}",
+                f"💰 **当前价格**: ¥{current_price:.2f}",
             ]
             
+            # 添加策略信息
+            if rec.get('strategy'):
+                content_lines.append(f"📈 **策略**: {rec['strategy']}")
+            
+            # 添加盈利预测信息（如果存在）
+            profit_pred = rec.get('profit_prediction', {})
+            if profit_pred:
+                expected_return = profit_pred.get('expected_return_pct', 0)
+                success_prob = profit_pred.get('success_probability_pct', 0)
+                
+                # 设置收益率颜色
+                return_color = "green" if expected_return > 0 else "red"
+                return_sign = "+" if expected_return > 0 else ""
+                
+                content_lines.append("")
+                content_lines.append(f"💹 **盈利预测**:")
+                content_lines.append(f"   预期收益: <font color='{return_color}'>{return_sign}{expected_return:.1f}%</font> | 成功率: {success_prob:.0f}%")
+                
+                # 目标价格
+                targets = profit_pred.get('target_prices', {})
+                if targets.get('conservative'):
+                    content_lines.append(f"   保守目标: ¥{targets['conservative']:.2f}")
+                if targets.get('moderate'):
+                    content_lines.append(f"   适中目标: ¥{targets['moderate']:.2f}")
+                if targets.get('aggressive'):
+                    content_lines.append(f"   激进目标: ¥{targets['aggressive']:.2f}")
+                
+                # 止损价格
+                if profit_pred.get('stop_loss'):
+                    content_lines.append(f"   止损价: ¥{profit_pred['stop_loss']:.2f}")
+            
             # 添加推荐理由
-            reasons = rec.get('reasons', [])
-            if reasons:
-                content_lines.append("\n**推荐理由:**")
-                for reason in reasons[:3]:  # 最多显示3条理由
-                    content_lines.append(f"• {reason}")
+            if reason and reason != 'N/A':
+                content_lines.append("")
+                content_lines.append(f"📝 **理由**: {reason}")
             
             elements.append({
                 "tag": "div",
@@ -492,7 +523,7 @@ class FeishuNotifier(Notifier):
             })
             
             # 非最后一个添加分割线
-            if i < min(len(recommendations), 5):
+            if i < min(len(recommendations), 10):
                 elements.append({
                     "tag": "hr"
                 })

@@ -2,12 +2,12 @@
 
 # 数据源配置
 data_source:
-  # 数据源类型：akshare（国内市场）, yfinance（全球市场）, twelvedata（全球市场+外汇+加密货币）
-  provider: "tushare"
-  # API配置（twelvedata 需要 API key）
-  api_key: "9fe93e2197664306a03d90d4d859f26f"
-  # 数据更新频率（分钟）
-  update_interval: 60
+  # 数据源类型：akshare（国内市场）
+  provider: "akshare"
+  # 是否使用本地数据
+  use_local_data: true
+  # 本地数据目录
+  local_data_dir: "~/.qlib/qlib_data/cn_data"
   # 缓存配置
   cache:
     enabled: true
@@ -15,44 +15,42 @@ data_source:
 
 # 分析策略配置
 analysis:
+  # 市场类型：A（A股）
+  market: "A"
+  # 最大分析股票数量
+  max_stocks: 5000
+  # 最大推荐数量
+  max_recommendations: 20
+  # 最低推荐分数
+  min_score: 60
+  
+  # 趋势策略配置
+  trend_strategy:
+    # 均线周期
+    ma_periods: [20, 60, 120]
+    # 最少数据点数
+    min_data_points: 60
+    # 突破信号最低分数
+    breakout_min_score: 70
+    # 回调信号最低分数
+    pullback_min_score: 60
+  
   # 分析的证券类型
   security_types:
     - stock  # 股票
-    - fund   # 基金
     - etf    # ETF
-  
-  # 技术指标配置
-  indicators:
-    - name: "MA"  # 移动平均线
-      params:
-        periods: [5, 10, 20, 60]
-    - name: "MACD"  # MACD指标
-      params:
-        fast: 12
-        slow: 26
-        signal: 9
-    - name: "RSI"  # 相对强弱指标
-      params:
-        period: 14
-    - name: "KDJ"  # KDJ指标
-      params:
-        n: 9
-        m1: 3
-        m2: 3
   
   # 选股条件
   filters:
-    min_price: 5.0      # 最低价格
-    max_price: 1000.0   # 最高价格
-    min_volume: 1000000 # 最小成交量
-    min_market_cap: 1000000000  # 最小市值（元）
-  
-  # 策略配置
-  strategies:
-    # 策略配置示例（根据需要添加具体策略）
+    min_price: 5.0
+    max_price: 1000.0
+    min_volume: 1000000
+    min_market_cap: 1000000000
 
 # 回测配置
 backtest:
+  # 是否启用回测
+  enabled: false
   # 回测时间范围
   start_date: "2023-01-01"
   end_date: "2024-12-31"
@@ -68,59 +66,24 @@ backtest:
 # 报告生成配置
 report:
   # 报告格式
-  format: ["html", "json"]
+  format: ["markdown", "json"]
   # 输出路径
   output_path: "data/reports/"
   # 推荐数量
-  top_n: 10
+  top_n: 20
   # 包含图表
   include_charts: true
 
 # 推送配置
 notification:
-  # 启用的推送方式
+  enabled: false
   enabled_channels:
-    # - email
-    # - wechat
-    # - dingtalk
     - feishu
-  
-  # 邮件推送配置
-  email:
-    smtp_server: "smtp.example.com"
-    smtp_port: 587
-    use_tls: true
-    username: "your_email@example.com"
-    password: "your_password"
-    from_addr: "your_email@example.com"
-    to_addrs:
-      - "recipient1@example.com"
-      - "recipient2@example.com"
-  
-  # 微信推送配置（Server酱等）
-  wechat:
-    webhook_url: "https://sc.ftqq.com/your_key.send"
-  
-  # 钉钉推送配置
-  dingtalk:
-    webhook_url: "https://oapi.dingtalk.com/robot/send?access_token=your_token"
-    secret: "your_secret"
-  
-  # 飞书推送配置
   feishu:
-    webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/your_webhook_token"
-    secret: ""  # 可选，如果设置了签名校验
-  
-  # 推送时间
-  schedule:
-    # 推送时间（24小时制）
-    time: "09:00"
-    # 推送频率：daily, weekly, on_signal
-    frequency: "daily"
+    webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/40fd1eb2-b6ea-45ed-a667-5e25fd67e6d1"
+    secret: ""
 
 # 日志配置
 logging:
-  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  level: "INFO"
   log_file: "logs/trading_tips.log"
-  max_size: "10MB"
-  backup_count: 5
