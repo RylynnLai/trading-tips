@@ -306,9 +306,9 @@ class TradingTipsApp:
         max_stocks = self.config.get('analysis', {}).get('max_stocks', 50)
         stock_list = stock_list.head(max_stocks)
         
-        # 日期配置 - 分析最近一年的数据
+        # 日期配置 - 分析最近五年的数据（符合趋势交易策略要求）
         end_date = datetime.now().strftime('%Y-%m-%d')
-        start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
+        start_date = (datetime.now() - timedelta(days=365*5)).strftime('%Y-%m-%d')
         
         # 获取每只股票的数据
         for idx, row in stock_list.iterrows():
