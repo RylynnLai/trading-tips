@@ -398,7 +398,8 @@ class FeishuNotifier(Notifier):
     
     def send_report_card(self, strategy_name: str, 
                         recommendations: List[Dict],
-                        portfolio_stats: Optional[Dict] = None) -> bool:
+                        portfolio_stats: Optional[Dict] = None,
+                        data_info: Optional[Dict] = None) -> bool:
         """
         发送推荐报告卡片
         
@@ -406,136 +407,221 @@ class FeishuNotifier(Notifier):
             strategy_name: 策略名称
             recommendations: 推荐列表
             portfolio_stats: 组合统计
+            data_info: 数据信息（分析股票数量、时间范围等）
             
         Returns:
             bool: 是否发送成功
         """
+        from datetime import datetime
         elements = []
         
-        # 添加统计信息
-        if portfolio_stats:
-            fields = []
-            fields.append({
+        # 添加报告元信息
+        meta_fields = []
+        meta_fields.append({
+            "is_short": True,
+            "text": {
+                "tag": "lark_md",
+                "content": f"**生成时间**\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            }
+        })
+        meta_fields.append({
+            "is_short": True,
+            "text": {
+                "tag": "lark_md",
+                "content": f"**推荐数量**\n{len(recommendations)} 只"
+            }
+        })
+        
+        # 添加数据信息
+        if data_info:
+            meta_fields.append({
                 "is_short": True,
                 "text": {
                     "tag": "lark_md",
-                    "content": f"**推荐数量**\n{portfolio_stats.get('portfolio_count', len(recommendations))}"
+                    "content": f"**分析股票**\n{data_info.get('total_stocks', 0)} 只"
                 }
             })
-            fields.append({
-                "is_short": True,
-                "text": {
-                    "tag": "lark_md",
-                    "content": f"**平均波动率**\n{portfolio_stats.get('avg_volatility', 0):.2f}%"
-                }
-            })
-            fields.append({
-                "is_short": True,
-                "text": {
-                    "tag": "lark_md",
-                    "content": f"**平均动量**\n{portfolio_stats.get('avg_momentum', 0):.2f}%"
-                }
-            })
-            
-            if 'expected_annual_return' in portfolio_stats:
-                fields.append({
+            if data_info.get('date_range'):
+                meta_fields.append({
                     "is_short": True,
                     "text": {
                         "tag": "lark_md",
-                        "content": f"**预期年化收益**\n{portfolio_stats['expected_annual_return']}"
+                        "content": f"**数据范围**\n{data_info['date_range']}"
                     }
                 })
-            
-            elements.append({
-                "tag": "div",
-                "fields": fields
-            })
-            
-            # 添加分割线
-            elements.append({
-                "tag": "hr"
-            })
         
-        # 添加推荐列表
-        for i, rec in enumerate(recommendations[:10], 1):  # 显示前10个
-            # 推荐标题
-            if i <= 3:
-                rank_emoji = ["🥇", "🥈", "🥉"][i-1]
-            else:
-                rank_emoji = f"{i}️⃣"
+        elements.append({
+            "tag": "div",
+            "fields": meta_fields
+        })
+        
+        elements.append({"tag": "hr"})
+        
+        # 执行摘要
+        if recommendations:
+            avg_score = sum(r.get('score', 0) for r in recommendations) / len(recommendations)
             
-            # 构建推荐内容
-            symbol = rec.get('symbol', 'N/A')
-            name = rec.get('name', symbol)
-            score = rec.get('score', 0)
-            current_price = rec.get('current_price', 0)
-            action = rec.get('action', 'N/A')
-            reason = rec.get('reason', 'N/A')
+            # 统计策略分布
+            strategy_counts = {}
+            for rec in recommendations:
+                strat = rec.get('strategy', '未知')
+                strategy_counts[strat] = strategy_counts.get(strat, 0) + 1
             
-            content_lines = [
-                f"{rank_emoji} **{name}** ({symbol})",
-                f"📊 **推荐**: {action} | **得分**: {score:.1f}",
-                f"💰 **当前价格**: ¥{current_price:.2f}",
+            summary_lines = [
+                "**📋 执行摘要**",
+                f"- 平均推荐评分: **{avg_score:.1f}** 分",
+                "- 策略分布:"
             ]
-            
-            # 添加策略信息
-            if rec.get('strategy'):
-                content_lines.append(f"📈 **策略**: {rec['strategy']}")
-            
-            # 添加盈利预测信息（如果存在）
-            profit_pred = rec.get('profit_prediction', {})
-            if profit_pred:
-                expected_return = profit_pred.get('expected_return_pct', 0)
-                success_prob = profit_pred.get('success_probability_pct', 0)
-                
-                # 设置收益率颜色
-                return_color = "green" if expected_return > 0 else "red"
-                return_sign = "+" if expected_return > 0 else ""
-                
-                content_lines.append("")
-                content_lines.append(f"💹 **盈利预测**:")
-                content_lines.append(f"   预期收益: <font color='{return_color}'>{return_sign}{expected_return:.1f}%</font> | 成功率: {success_prob:.0f}%")
-                
-                # 目标价格
-                targets = profit_pred.get('target_prices', {})
-                if targets.get('conservative'):
-                    content_lines.append(f"   保守目标: ¥{targets['conservative']:.2f}")
-                if targets.get('moderate'):
-                    content_lines.append(f"   适中目标: ¥{targets['moderate']:.2f}")
-                if targets.get('aggressive'):
-                    content_lines.append(f"   激进目标: ¥{targets['aggressive']:.2f}")
-                
-                # 止损价格
-                if profit_pred.get('stop_loss'):
-                    content_lines.append(f"   止损价: ¥{profit_pred['stop_loss']:.2f}")
-            
-            # 添加推荐理由
-            if reason and reason != 'N/A':
-                content_lines.append("")
-                content_lines.append(f"📝 **理由**: {reason}")
+            for strat, count in strategy_counts.items():
+                summary_lines.append(f"  - {strat}: {count} 只")
             
             elements.append({
                 "tag": "div",
                 "text": {
                     "tag": "lark_md",
-                    "content": "\n".join(content_lines)
+                    "content": "\n".join(summary_lines)
                 }
             })
             
-            # 非最后一个添加分割线
-            if i < min(len(recommendations), 10):
-                elements.append({
-                    "tag": "hr"
-                })
+            elements.append({"tag": "hr"})
         
-        # 添加备注信息
-        from datetime import datetime
+        # 添加推荐列表
+        if not recommendations:
+            # 无推荐时的说明
+            elements.append({
+                "tag": "div",
+                "text": {
+                    "tag": "lark_md",
+                    "content": "**⚠️ 暂无推荐**\n\n当前市场环境下，暂无符合策略标准的推荐标的。\n\n**可能原因：**\n- 大部分股票处于震荡或下跌趋势\n- 上涨趋势的股票位置过高\n- 推荐评分阈值较高（60分）\n\n**建议：**\n- 等待市场出现明确的趋势信号\n- 可降低评分阈值获得更多推荐"
+                }
+            })
+        else:
+            # 有推荐时显示详细列表
+            elements.append({
+                "tag": "div",
+                "text": {
+                    "tag": "lark_md",
+                    "content": "**🎯 详细推荐列表**"
+                }
+            })
+            elements.append({"tag": "hr"})
+            
+            for i, rec in enumerate(recommendations[:10], 1):  # 显示前10个
+                # 推荐标题
+                if i <= 3:
+                    rank_emoji = ["🥇", "🥈", "🥉"][i-1]
+                else:
+                    rank_emoji = f"{'🔸' if i <= 5 else '🔹'}"
+                
+                # 构建推荐内容
+                symbol = rec.get('symbol', 'N/A')
+                stock_name = rec.get('stock_name', symbol)
+                score = rec.get('score', 0)
+                current_price = rec.get('current_price', 0)
+                strategy = rec.get('strategy', 'N/A')
+                trend_type = rec.get('trend_type', '未定义')
+                priority = rec.get('priority', '')
+                
+                # 标题行：排名 + 股票名称 + 策略
+                if stock_name != symbol:
+                    title_line = f"{rank_emoji} **{stock_name}** ({symbol}) - {strategy} {priority}"
+                else:
+                    title_line = f"{rank_emoji} **{symbol}** - {strategy} {priority}"
+                
+                content_lines = [title_line, ""]
+                
+                # 基本信息
+                content_lines.append(f"💯 **综合评分**: {score:.0f} 分")
+                content_lines.append(f"💰 **当前价格**: ¥{current_price:.2f}")
+                content_lines.append(f"📈 **趋势类型**: {trend_type}")
+                
+                # 均线形态
+                ma_alignment = rec.get('ma_alignment', 'N/A')
+                alignment_text = {
+                    'bull': '多头排列 🟢',
+                    'bear': '空头排列 🔴',
+                    'mixed': '混乱排列 🟡'
+                }.get(ma_alignment, ma_alignment)
+                content_lines.append(f"📊 **均线形态**: {alignment_text}")
+                
+                # 交易信号
+                entry_signal = rec.get('entry_signal')
+                if entry_signal:
+                    content_lines.append(f"🎯 **入场信号**: {entry_signal}")
+                
+                hold_signal = rec.get('hold_signal')
+                if hold_signal:
+                    content_lines.append(f"💎 **持有信号**: {hold_signal}")
+                
+                exit_signal = rec.get('exit_signal')
+                if exit_signal:
+                    content_lines.append(f"🚪 **离场信号**: {exit_signal}")
+                
+                # 止损和目标
+                stop_loss = rec.get('stop_loss')
+                if stop_loss:
+                    stop_loss_pct = rec.get('stop_loss_pct', 0)
+                    content_lines.append(f"🛡️ **止损位**: ¥{stop_loss:.2f} ({stop_loss_pct:.1f}%)")
+                
+                targets = rec.get('targets', [])
+                if targets:
+                    target_str = " / ".join([f"¥{t:.2f}" for t in targets[:3]])
+                    content_lines.append(f"🎯 **目标位**: {target_str}")
+                
+                risk_reward = rec.get('risk_reward', 0)
+                if risk_reward > 0:
+                    content_lines.append(f"⚖️ **盈亏比**: {risk_reward:.1f}:1")
+                
+                # 推荐理由
+                reasons = rec.get('reasons', [])
+                if reasons:
+                    content_lines.append("")
+                    content_lines.append("**📝 推荐理由：**")
+                    for reason in reasons[:3]:  # 最多显示3个理由
+                        content_lines.append(f"✅ {reason}")
+                
+                # 盈利预测
+                profit_prediction = rec.get('profit_prediction')
+                if profit_prediction:
+                    pred_targets = profit_prediction.get('targets', [])
+                    if pred_targets and len(pred_targets) > 0:
+                        content_lines.append("")
+                        content_lines.append("**📈 盈利预测：**")
+                        for target in pred_targets[:2]:  # 显示前2个目标
+                            level = target.get('level', 0)
+                            price = target.get('price', 0)
+                            gain_pct = target.get('gain_pct', 0)
+                            probability = target.get('probability', 0)
+                            emoji = "🥇" if level == 1 else "🥈"
+                            content_lines.append(f"{emoji} 目标{level}: ¥{price:.2f} (+{gain_pct:.1f}%, 概率{probability:.0%})")
+                    
+                    # 持有周期
+                    holding_period = profit_prediction.get('holding_period', {})
+                    if holding_period:
+                        target_days = holding_period.get('target_days', 0)
+                        max_days = holding_period.get('max_days', 0)
+                        if target_days > 0:
+                            content_lines.append(f"⏱️ 建议持有: {target_days}-{max_days}天")
+                
+                elements.append({
+                    "tag": "div",
+                    "text": {
+                        "tag": "lark_md",
+                        "content": "\n".join(content_lines)
+                    }
+                })
+                
+                # 非最后一个添加分割线
+                if i < min(len(recommendations), 10):
+                    elements.append({"tag": "hr"})
+        
+        # 添加风险提示
         elements.append({
             "tag": "note",
             "elements": [
                 {
                     "tag": "plain_text",
-                    "content": f"⚠️ 投资有风险，入市需谨慎。本报告仅供参考，不构成投资建议。\n生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                    "content": "⚠️ 风险提示：\n1. 本报告仅供参考，不构成投资建议\n2. 股票投资有风险，入市需谨慎\n3. 请根据自身风险承受能力做出投资决策\n4. 严格执行止损策略，控制风险"
                 }
             ]
         })

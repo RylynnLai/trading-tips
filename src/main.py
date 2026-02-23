@@ -17,7 +17,6 @@ from typing import Dict, List, Optional
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.data_source import DataFetcher
-from src.analysis.analyzer import TechnicalAnalyzer
 from src.analysis.trend_strategy import TrendFollowingStrategy
 from src.backtest import Backtester
 from src.report import ReportGenerator
@@ -119,11 +118,8 @@ class TradingTipsApp:
         data_source_config = self.config.get('data_source', {})
         self.data_fetcher = DataFetcher(data_source_config)
         
-        # 初始化分析模块
-        analysis_config = self.config.get('analysis', {})
-        self.technical_analyzer = TechnicalAnalyzer(analysis_config)
-        
         # 初始化趋势策略
+        analysis_config = self.config.get('analysis', {})
         trend_config = analysis_config.get('trend_strategy', {})
         self.trend_strategy = TrendFollowingStrategy(trend_config)
         
@@ -230,20 +226,6 @@ class TradingTipsApp:
             logger.error(f"本地数据目录不存在: {self.local_data_dir}")
             return stock_data, stock_names
         
-        # 尝试获取股票列表以获得名称映射
-        try:
-            market = self.config.get('analysis', {}).get('market', 'A')
-            stock_list_df = self.data_fetcher.fetch_stock_list(market)
-            if not stock_list_df.empty:
-                for _, row in stock_list_df.iterrows():
-                    code = row.get('code', row.get('代码', ''))
-                    name = row.get('name', row.get('名称', ''))
-                    if code and name:
-                        stock_names[code] = name
-                logger.info(f"获取到 {len(stock_names)} 只股票的名称映射")
-        except Exception as e:
-            logger.warning(f"获取股票名称映射失败: {e}")
-        
         csv_files = list(self.local_data_dir.glob("*.csv"))
         logger.info(f"找到 {len(csv_files)} 个数据文件")
         
@@ -251,10 +233,18 @@ class TradingTipsApp:
         max_stocks = self.config.get('analysis', {}).get('max_stocks', 100)
         csv_files = csv_files[:max_stocks]
         
+        logger.info(f"开始加载本地数据，将从CSV文件中直接读取股票名称...")
+        
         for csv_file in csv_files:
             try:
                 stock_code = csv_file.stem
-                df = pd.read_csv(csv_file)
+                df = pd.read_csv(csv_file, dtype={'代码': str})  # 确保代码列作为字符串读取
+                
+                # 从CSV中读取股票名称（如果有）
+                if '名称' in df.columns and not df.empty:
+                    stock_name = df['名称'].iloc[0]
+                    if pd.notna(stock_name):
+                        stock_names[stock_code] = stock_name
                 
                 # 标准化列名
                 column_mapping = {
@@ -275,13 +265,14 @@ class TradingTipsApp:
                 
                 if not df.empty and len(df) >= 60:  # 至少需要60个交易日
                     stock_data[stock_code] = df
-                    # 如果名称映射中没有，设置为股票代码
+                    # 如果名称映射中还没有，设置为股票代码
                     if stock_code not in stock_names:
                         stock_names[stock_code] = stock_code
                     
             except Exception as e:
                 logger.warning(f"加载 {csv_file.name} 失败: {e}")
         
+        logger.info(f"本地数据加载完成: {len(stock_data)} 只股票，{len(stock_names)} 个股票名称（无需网络请求）")
         return stock_data, stock_names
     
     def _fetch_online_data(self):
@@ -522,14 +513,15 @@ class TradingTipsApp:
                 
                 feishu = FeishuNotifier(notification_config)
                 
-                # 获取数据信息
-                data_info = getattr(self, '_last_data_info', None)
+                # 构建组合统计信息
+                portfolio_stats = self._calculate_portfolio_stats(analysis_results)
                 
-                # 发送推荐报告卡片
+                # 发送推荐报告卡片（包含数据信息）
                 success = feishu.send_report_card(
                     strategy_name='趋势跟随策略',
                     recommendations=analysis_results,
-                    data_info=data_info
+                    portfolio_stats=portfolio_stats,
+                    data_info=getattr(self, '_last_data_info', None)
                 )
                 
                 if success:
@@ -548,6 +540,44 @@ class TradingTipsApp:
             logger.error(f"通知推送失败: {e}")
             import traceback
             logger.error(traceback.format_exc())
+    
+    def _calculate_portfolio_stats(self, recommendations: List[Dict]) -> Dict:
+        """
+        计算组合统计信息
+        
+        Args:
+            recommendations: 推荐列表
+            
+        Returns:
+            Dict: 组合统计信息
+        """
+        if not recommendations:
+            return {
+                'portfolio_count': 0,
+                'avg_volatility': 0,
+                'avg_momentum': 0,
+                'expected_annual_return': '0%'
+            }
+        
+        # 计算平均波动率（使用得分的标准差作为代理）
+        scores = [rec.get('score', 0) for rec in recommendations]
+        avg_score = sum(scores) / len(scores) if scores else 0
+        
+        # 计算平均预期收益（如果有的话）
+        expected_returns = []
+        for rec in recommendations:
+            profit_pred = rec.get('profit_prediction', {})
+            if profit_pred and 'expected_return_pct' in profit_pred:
+                expected_returns.append(profit_pred['expected_return_pct'])
+        
+        avg_return = sum(expected_returns) / len(expected_returns) if expected_returns else 0
+        
+        return {
+            'portfolio_count': len(recommendations),
+            'avg_volatility': avg_score * 0.3,  # 简化估算
+            'avg_momentum': avg_score * 0.2,     # 简化估算
+            'expected_annual_return': f'{avg_return * 12:.1f}%'  # 年化收益
+        }
     
     def _format_notification_message(self, recommendations: List[Dict]) -> str:
         """

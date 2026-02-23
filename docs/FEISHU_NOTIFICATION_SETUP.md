@@ -44,7 +44,7 @@ notification:
 运行测试脚本验证配置：
 
 ```bash
-python test_feishu_send.py
+python tests/manual/test_feishu_send.py
 ```
 
 如果配置正确，你的飞书群组会收到一条包含5个测试推荐的卡片消息。
@@ -200,7 +200,7 @@ feishu:
 - **配置文件**：`config/config.yaml`
 - **通知器代码**：`src/notification/notifier.py`
 - **主程序**：`src/main.py`
-- **测试脚本**：`test_feishu_send.py`
+- **测试脚本**：`tests/manual/test_feishu_send.py`
 
 ## 更多信息
 

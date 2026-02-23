@@ -76,7 +76,7 @@ report:
 
 # 推送配置
 notification:
-  enabled: false
+  enabled: true
   enabled_channels:
     - feishu
   feishu:

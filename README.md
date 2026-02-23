@@ -52,6 +52,9 @@ python run.py --local
 # 指定参数运行
 python run.py --local --max-stocks 50 --min-score 70
 
+# 启用通知推送
+python run.py --local --notify
+
 # 查看帮助
 python run.py --help
 ```
@@ -92,31 +95,49 @@ trading-tips/
 ├── README.md                      # 项目说明文档
 ├── requirements.txt               # Python依赖包
 ├── run.py                        # 快速启动脚本
+├── ql_task.py                    # 青龙面板任务脚本
+├── ql.json                       # 青龙面板配置
 ├── download_stock_data.py        # 数据下载工具
-├── test_local_data.py           # 本地数据测试
 ├── config/
 │   └── config.yaml              # 主配置文件
-├── src/
+├── src/                         # 核心代码
 │   ├── main.py                  # 主程序入口
 │   ├── data_source/             # 数据源模块
+│   │   ├── base_provider.py    # 数据提供者基类
 │   │   ├── akshare_provider.py # AKShare数据提供者
 │   │   └── data_fetcher.py     # 数据获取器
-│   ├── analysis/                # 数据分析模块 ⭐核心
+│   ├── analysis/                # 分析模块 ⭐核心
 │   │   ├── indicators.py       # 技术指标计算
 │   │   ├── trend_analyzer.py   # 趋势分析器
 │   │   ├── signal_detector.py  # 信号检测器
-│   │   ├── trend_strategy.py   # 趋势策略
-│   │   └── analyzer.py         # 分析器集成
+│   │   ├── trend_strategy.py   # 趋势跟随策略
+│   │   ├── profit_predictor.py # 盈利预测器
+│   │   ├── base_strategy.py    # 策略基类
+│   │   └── analyzer.py         # 分析器集成（可选）
 │   ├── backtest/               # 回测模块
+│   │   └── backtester.py       # 回测引擎
 │   ├── report/                 # 报告生成模块
-│   └── notification/           # 推送消息模块
+│   │   └── report_generator.py # 报告生成器
+│   ├── notification/           # 通知推送模块
+│   │   └── notifier.py         # 飞书/钉钉通知器
+│   └── utils/                  # 工具模块
+│       └── env_config.py       # 环境配置
+├── scripts/                    # 辅助脚本
+│   └── backtest_strategy.py    # 独立回测脚本
+├── tests/                      # 测试代码
+│   └── manual/                 # 手动测试脚本
 ├── data/
-│   └── reports/                # 分析报告输出
+│   ├── reports/                # 分析报告输出
+│   └── task_results/           # 任务结果
 ├── docs/                       # 文档目录
 │   ├── MAIN_USAGE.md          # 主程序使用指南
 │   ├── TREND_ANALYSIS_GUIDE.md # 趋势分析详细文档
+│   ├── PROFIT_PREDICTION_GUIDE.md # 盈利预测指南
+│   ├── RECOMMENDATION_GUIDE.md # 推荐说明指南
 │   ├── DATA_SOURCE.md         # 数据源说明
-│   └── feishu_notification_guide.md
+│   ├── QINGLONG.md            # 青龙面板部署指南
+│   ├── FEISHU_NOTIFICATION_SETUP.md # 飞书通知设置
+│   └── archive/               # 历史文档归档
 └── logs/                       # 日志文件目录
 ```
 

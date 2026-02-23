@@ -123,14 +123,13 @@ def create_test_recommendations():
         }
     ]
 
-def create_test_data_info():
-    """创建测试数据信息"""
+def create_test_portfolio_stats():
+    """创建测试组合统计信息"""
     return {
-        'total_stocks': 99,
-        'date_range': '2020-01-02 至 2026-02-13',
-        'start_date': '2020-01-02',
-        'end_date': '2026-02-13',
-        'avg_data_points': 1362
+        'portfolio_count': 5,
+        'avg_volatility': 28.5,
+        'avg_momentum': 15.2,
+        'expected_annual_return': '25.8%'
     }
 
 def main():
@@ -166,19 +165,19 @@ def main():
     # 创建测试数据
     print("\n3. 创建测试推荐数据...")
     recommendations = create_test_recommendations()
-    data_info = create_test_data_info()
+    portfolio_stats = create_test_portfolio_stats()
     print(f"✓ 创建了 {len(recommendations)} 个测试推荐")
     
     # 发送测试通知
     print("\n4. 发送飞书通知...")
     print(f"   策略名称: 趋势跟随策略")
     print(f"   推荐数量: {len(recommendations)}")
-    print(f"   数据范围: {data_info['date_range']}")
+    print(f"   预期年化收益: {portfolio_stats['expected_annual_return']}")
     
     success = notifier.send_report_card(
         strategy_name='趋势跟随策略',
         recommendations=recommendations,
-        data_info=data_info
+        portfolio_stats=portfolio_stats
     )
     
     # 显示结果

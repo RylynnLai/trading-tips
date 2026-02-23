@@ -141,13 +141,25 @@ def download_stock_data(target_dir="~/.qlib/qlib_data/cn_data", num_stocks=300,
                             '换手率': '换手率'
                         })
                         
-                        # 添加股票代码列（如果没有）
-                        if '代码' not in df.columns:
-                            df['代码'] = code
-                        if '名称' not in df.columns:
-                            df['名称'] = name
+                        # 确保股票代码和名称列存在且格式正确
+                        # 使用字符串格式保存代码，保留前导零
+                        df['代码'] = str(code).zfill(6)  # 统一补齐到6位
+                        df['名称'] = name
                         
-                        # 保存数据
+                        # 调整列顺序，将代码和名称放在前面
+                        cols = df.columns.tolist()
+                        if '代码' in cols and '名称' in cols:
+                            cols.remove('代码')
+                            cols.remove('名称')
+                            # 日期、代码、名称放在最前面，其他列保持原顺序
+                            if '日期' in cols:
+                                cols.remove('日期')
+                                cols = ['日期', '代码', '名称'] + cols
+                            else:
+                                cols = ['代码', '名称'] + cols
+                            df = df[cols]
+                        
+                        # 保存数据，确保代码列保存为字符串
                         file_path = os.path.join(target_dir, f"{code}.csv")
                         df.to_csv(file_path, index=False, encoding='utf-8-sig')
                         

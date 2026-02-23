@@ -19,43 +19,47 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# 虚拟环境
+# Virtual Environment
+.venv/
 venv/
 ENV/
 env/
-.venv
 
-# IDE
+# IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+
+# Logs
+logs/
+*.log
+
+# Data files (keep structure, ignore content)
+data/reports/*.json
+data/reports/*.md
+data/reports/*.html
+data/task_results/
+
+# OS
 .DS_Store
+Thumbs.db
 
-# 日志文件
-logs/*.log
-
-# 数据文件
-data/*.csv
-data/*.json
-data/*.xlsx
-data/*.db
-data/reports/*
-!data/.gitkeep
-
-# 配置文件（包含敏感信息）
-config/config.local.yaml
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# pytest
+# Test and temporary files
+*.tmp
+*.bak
 .pytest_cache/
 .coverage
 htmlcov/
 
-# 其他
-*.bak
-*.tmp
+# Archives
+docs/archive/
+*.zip
+*.tar.gz
+
+# Environment variables
+.env
+.env.local
