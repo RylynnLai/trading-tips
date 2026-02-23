@@ -146,7 +146,7 @@ def test_feishu_report_card():
     # 3. 准备测试数据
     print("\n3. 准备推荐数据...")
     
-    strategy_name = "低波动轮动策略"
+    strategy_name = "技术分析策略"
     
     # 模拟推荐列表
     recommendations = [
@@ -160,7 +160,7 @@ def test_feishu_report_card():
             'momentum': 8.3,
             'suggested_position': '20%',
             'reasons': [
-                '波动率较低(12.5%)，符合低波动策略',
+                'MA均线多头排列，趋势向上',
                 '近期动量强劲(+8.3%)',
                 '综合得分最高(9.2分)'
             ]

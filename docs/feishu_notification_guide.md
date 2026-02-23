@@ -130,7 +130,7 @@ recommendations = [
         'momentum': 8.3,
         'suggested_position': '20%',
         'reasons': [
-            '波动率较低，符合低波动策略',
+            'MA均线多头排列，趋势向上',
             '近期动量强劲',
             '综合得分最高'
         ]
@@ -148,7 +148,7 @@ portfolio_stats = {
 
 # 发送推荐报告卡片
 notifier.send_report_card(
-    strategy_name="低波动轮动策略",
+    strategy_name="技术分析策略",
     recommendations=recommendations,
     portfolio_stats=portfolio_stats
 )

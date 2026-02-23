@@ -27,7 +27,7 @@ except Exception as e:
     sys.exit(1)
 
 try:
-    from src.analysis import BaseStrategy, LowVolatilityRotation
+    from src.analysis import BaseStrategy
     print("✅ 分析模块导入成功")
 except Exception as e:
     print(f"❌ 分析模块导入失败: {e}")
@@ -78,88 +78,8 @@ except Exception as e:
     print(f"❌ 数据源初始化失败: {e}")
     sys.exit(1)
 
-# 测试4: 低波轮动策略初始化
-print("\n[测试4] 初始化低波轮动策略...")
-try:
-    strategy_config = config['analysis']['strategies']['low_volatility_rotation']
-    strategy = LowVolatilityRotation(strategy_config)
-    print(f"✅ 策略初始化成功: {strategy.get_name()}")
-    print(f"   - 波动率窗口: {strategy.volatility_window}天")
-    print(f"   - 动量窗口: {strategy.momentum_window}天")
-    print(f"   - 推荐数量: {strategy.top_n}")
-except Exception as e:
-    print(f"❌ 策略初始化失败: {e}")
-    sys.exit(1)
-
-# 测试5: 使用模拟数据测试策略
-print("\n[测试5] 使用模拟数据测试策略...")
-try:
-    from datetime import datetime, timedelta
-    
-    # 生成模拟数据
-    dates = pd.date_range(end=datetime.now(), periods=100, freq='D')
-    candidates = []
-    
-    for i in range(3):
-        base_price = 100 + i * 5
-        volatility = 0.002 + i * 0.001
-        
-        prices = [base_price]
-        for _ in range(99):
-            change = np.random.normal(0.0005, volatility)
-            prices.append(prices[-1] * (1 + change))
-        
-        price_data = pd.DataFrame({
-            'date': dates,
-            'close': prices,
-            'volume': np.random.randint(10000, 100000, 100),
-            'amount': np.random.randint(1000000, 50000000, 100),
-        })
-        
-        candidates.append({
-            'code': f'TEST{i:03d}',
-            'name': f'测试标的{i+1}',
-            'price_data': price_data
-        })
-    
-    # 分析
-    analyzed_data = strategy.analyze(candidates)
-    print(f"✅ 分析完成: {len(analyzed_data)} 个标的")
-    
-    # 生成推荐
-    recommendations = strategy.generate_recommendations(analyzed_data)
-    print(f"✅ 推荐生成: {len(recommendations)} 个推荐")
-    
-    if recommendations:
-        print(f"\n   推荐结果预览:")
-        for rec in recommendations[:3]:
-            print(f"   {rec['rank']}. {rec['name']}: 得分={rec['score']:.2f}, "
-                  f"波动率={rec['volatility']:.2f}%, 动量={rec['momentum']:.2f}%")
-    
-except Exception as e:
-    print(f"❌ 策略测试失败: {e}")
-    import traceback
-    traceback.print_exc()
-    sys.exit(1)
-
-# 测试6: 组合统计
-print("\n[测试6] 组合统计功能...")
-try:
-    if recommendations:
-        stats = strategy.get_portfolio_stats(recommendations)
-        print(f"✅ 组合统计成功:")
-        print(f"   - 组合数量: {stats['portfolio_count']}")
-        print(f"   - 平均波动率: {stats['avg_volatility']:.2f}%")
-        print(f"   - 平均动量: {stats['avg_momentum']:.2f}%")
-        if not pd.isna(stats['avg_sharpe_ratio']):
-            print(f"   - 平均夏普比率: {stats['avg_sharpe_ratio']:.2f}")
-        print(f"   - 预期年化收益: {stats['expected_annual_return']}")
-except Exception as e:
-    print(f"❌ 组合统计失败: {e}")
-    sys.exit(1)
-
-# 测试7: 数据切换
-print("\n[测试7] 数据源切换功能...")
+# 测试4: 数据切换
+print("\n[测试4] 数据源切换功能...")
 try:
     fetcher = DataFetcher(akshare_config)
     original = fetcher.get_provider_name()
@@ -180,9 +100,6 @@ print("\n核心功能验证:")
 print("  ✓ 模块导入")
 print("  ✓ 配置加载")
 print("  ✓ 数据源 (AkShare, YFinance, TwelveData)")
-print("  ✓ 低波轮动策略")
-print("  ✓ 策略分析和推荐")
-print("  ✓ 组合统计")
 print("  ✓ 数据源切换")
 print("\n系统已就绪，可以开始使用！")
 print("=" * 70)
