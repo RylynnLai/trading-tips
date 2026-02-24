@@ -27,13 +27,13 @@
     {
       "name": "MAX_STOCKS",
       "desc": "最大股票数",
-      "default": "100",
+      "default": "1000",
       "required": false
     },
     {
       "name": "MIN_SCORE",
       "desc": "最低分数",
-      "default": "60",
+      "default": "70",
       "required": false
     }
   ]

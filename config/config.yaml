@@ -80,6 +80,7 @@ notification:
   enabled_channels:
     - feishu
   feishu:
+    # webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/931721f2-b168-4179-a769-fb67e13764dd"
     webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/40fd1eb2-b6ea-45ed-a667-5e25fd67e6d1"
     secret: ""
 

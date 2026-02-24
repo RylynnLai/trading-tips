@@ -28,13 +28,14 @@ class TradingTipsApp:
     证券推荐系统主应用类
     """
     
-    def __init__(self, config_path: str = None, config: dict = None):
+    def __init__(self, config_path: str = None, config: dict = None, target_stocks: List[str] = None):
         """
         初始化应用
         
         Args:
             config_path: 配置文件路径（如果提供，将从文件加载配置）
             config: 配置字典（如果提供，将直接使用该配置，优先级高于config_path）
+            target_stocks: 要分析的特定股票代码列表（如果提供，只分析这些股票）
         """
         # 加载配置：优先使用传入的config字典，其次从文件加载
         if config is not None:
@@ -45,6 +46,11 @@ class TradingTipsApp:
         else:
             # 默认从config/config.yaml加载
             self.config = self._load_config('config/config.yaml')
+        
+        # 保存要分析的特定股票列表
+        self.target_stocks = target_stocks
+        if target_stocks:
+            logger.info(f"将只分析指定的 {len(target_stocks)} 只股票: {', '.join(target_stocks)}")
         
         self._setup_logging()
         self._init_modules()
@@ -226,12 +232,18 @@ class TradingTipsApp:
             logger.error(f"本地数据目录不存在: {self.local_data_dir}")
             return stock_data, stock_names
         
-        csv_files = list(self.local_data_dir.glob("*.csv"))
-        logger.info(f"找到 {len(csv_files)} 个数据文件")
-        
-        # 限制加载数量
-        max_stocks = self.config.get('analysis', {}).get('max_stocks', 100)
-        csv_files = csv_files[:max_stocks]
+        # 如果指定了特定股票，只加载这些股票的数据
+        if self.target_stocks:
+            csv_files = [self.local_data_dir / f"{stock_code}.csv" for stock_code in self.target_stocks]
+            csv_files = [f for f in csv_files if f.exists()]
+            logger.info(f"指定了 {len(self.target_stocks)} 只股票，找到 {len(csv_files)} 个匹配的数据文件")
+        else:
+            csv_files = list(self.local_data_dir.glob("*.csv"))
+            logger.info(f"找到 {len(csv_files)} 个数据文件")
+            
+            # 限制加载数量
+            max_stocks = self.config.get('analysis', {}).get('max_stocks', 100)
+            csv_files = csv_files[:max_stocks]
         
         logger.info(f"开始加载本地数据，将从CSV文件中直接读取股票名称...")
         
@@ -285,40 +297,65 @@ class TradingTipsApp:
         stock_data = {}
         stock_names = {}
         
-        # 获取股票列表
-        market = self.config.get('analysis', {}).get('market', 'A')
-        stock_list = self.data_fetcher.fetch_stock_list(market)
-        
-        if stock_list.empty:
-            logger.error("未能获取股票列表")
-            return stock_data, stock_names
-        
-        # 限制数量
-        max_stocks = self.config.get('analysis', {}).get('max_stocks', 50)
-        stock_list = stock_list.head(max_stocks)
-        
         # 日期配置 - 分析最近五年的数据（符合趋势交易策略要求）
         end_date = datetime.now().strftime('%Y-%m-%d')
         start_date = (datetime.now() - timedelta(days=365*5)).strftime('%Y-%m-%d')
         
-        # 获取每只股票的数据
-        for idx, row in stock_list.iterrows():
-            try:
-                symbol = row.get('code', row.get('代码', row.get('symbol', '')))
-                name = row.get('name', row.get('名称', symbol))
-                
-                df = self.data_fetcher.fetch_stock_data(
-                    symbol=symbol,
-                    start_date=start_date,
-                    end_date=end_date
-                )
-                
-                if not df.empty and len(df) >= 60:
-                    stock_data[symbol] = df
-                    stock_names[symbol] = name
+        # 如果指定了特定股票，直接获取这些股票的数据
+        if self.target_stocks:
+            logger.info(f"获取指定的 {len(self.target_stocks)} 只股票数据")
+            for symbol in self.target_stocks:
+                try:
+                    df = self.data_fetcher.fetch_stock_data(
+                        symbol=symbol,
+                        start_date=start_date,
+                        end_date=end_date
+                    )
                     
-            except Exception as e:
-                logger.warning(f"获取 {symbol} 数据失败: {e}")
+                    if not df.empty and len(df) >= 60:
+                        stock_data[symbol] = df
+                        # 尝试获取股票名称
+                        try:
+                            info = self.data_fetcher.fetch_stock_info(symbol)
+                            stock_names[symbol] = info.get('name', symbol) if info else symbol
+                        except:
+                            stock_names[symbol] = symbol
+                    else:
+                        logger.warning(f"股票 {symbol} 数据不足（少于60个交易日）")
+                        
+                except Exception as e:
+                    logger.warning(f"获取 {symbol} 数据失败: {e}")
+        else:
+            # 获取股票列表
+            market = self.config.get('analysis', {}).get('market', 'A')
+            stock_list = self.data_fetcher.fetch_stock_list(market)
+            
+            if stock_list.empty:
+                logger.error("未能获取股票列表")
+                return stock_data, stock_names
+            
+            # 限制数量
+            max_stocks = self.config.get('analysis', {}).get('max_stocks', 50)
+            stock_list = stock_list.head(max_stocks)
+            
+            # 获取每只股票的数据
+            for idx, row in stock_list.iterrows():
+                try:
+                    symbol = row.get('code', row.get('代码', row.get('symbol', '')))
+                    name = row.get('name', row.get('名称', symbol))
+                    
+                    df = self.data_fetcher.fetch_stock_data(
+                        symbol=symbol,
+                        start_date=start_date,
+                        end_date=end_date
+                    )
+                    
+                    if not df.empty and len(df) >= 60:
+                        stock_data[symbol] = df
+                        stock_names[symbol] = name
+                        
+                except Exception as e:
+                    logger.warning(f"获取 {symbol} 数据失败: {e}")
         
         return stock_data, stock_names
     
@@ -414,14 +451,27 @@ class TradingTipsApp:
         
         # 过滤和排序
         min_score = self.config.get('analysis', {}).get('min_score', 60)
-        recommendations = [
-            rec for rec in recommendations 
-            if rec.get('score', 0) >= min_score
-        ]
         
-        # 限制推荐数量
-        max_recommendations = self.config.get('analysis', {}).get('max_recommendations', 20)
-        recommendations = recommendations[:max_recommendations]
+        # 如果是分析特定股票，不过滤低分股票，保留所有结果
+        if self.target_stocks:
+            logger.info(f"分析特定股票模式：保留所有分析结果（不过滤低分股票）")
+            # 按分数降序排序但不过滤
+            recommendations = sorted(recommendations, key=lambda x: x.get('score', 0), reverse=True)
+            # 为低分股票添加标记
+            for rec in recommendations:
+                if rec.get('score', 0) < min_score:
+                    rec['below_threshold'] = True
+                    rec['threshold_note'] = f"得分 {rec.get('score', 0):.1f} 低于推荐阈值 {min_score}"
+        else:
+            # 批量分析模式：过滤低分股票
+            recommendations = [
+                rec for rec in recommendations 
+                if rec.get('score', 0) >= min_score
+            ]
+            
+            # 限制推荐数量
+            max_recommendations = self.config.get('analysis', {}).get('max_recommendations', 20)
+            recommendations = recommendations[:max_recommendations]
         
         logger.info(f"分析完成，生成 {len(recommendations)} 个推荐")
         
@@ -462,7 +512,8 @@ class TradingTipsApp:
         """
         logger.info("生成分析报告...")
         
-        if not analysis_results:
+        # 如果是特定股票分析模式，即使无推荐结果也生成报告
+        if not analysis_results and not self.target_stocks:
             logger.warning("无分析结果，跳过报告生成")
             return {}
         
@@ -497,7 +548,8 @@ class TradingTipsApp:
         
         logger.info("通过配置的渠道推送分析结果")
         
-        if not analysis_results:
+        # 如果是特定股票分析模式，即使无推荐结果也发送通知
+        if not analysis_results and not self.target_stocks:
             logger.warning("无推荐结果，跳过通知推送")
             return
         
@@ -589,32 +641,59 @@ class TradingTipsApp:
         Returns:
             str: 格式化后的消息
         """
+        # 区分达标和不达标的推荐
+        qualified = [rec for rec in recommendations if not rec.get('below_threshold', False)]
+        below_threshold = [rec for rec in recommendations if rec.get('below_threshold', False)]
+        
         lines = [
             f"📊 趋势交易推荐 ({datetime.now().strftime('%Y-%m-%d')})",
-            f"共 {len(recommendations)} 个推荐",
-            "",
-            "🔝 Top 5 推荐:",
-            ""
         ]
         
-        for i, rec in enumerate(recommendations[:5], 1):
-            symbol = rec.get('symbol', 'N/A')
-            action = rec.get('action', 'N/A')
-            score = rec.get('score', 0)
-            trend_type = rec.get('trend_type', 'N/A')
-            reason = rec.get('reason', 'N/A')
-            
-            lines.append(f"{i}. {symbol}")
-            lines.append(f"   推荐: {action} | 得分: {score:.1f}")
-            lines.append(f"   趋势: {trend_type}")
-            lines.append(f"   理由: {reason}")
-            
-            if 'entry_price' in rec:
-                lines.append(f"   入场: {rec['entry_price']:.2f}")
-            if 'stop_loss' in rec:
-                lines.append(f"   止损: {rec['stop_loss']:.2f}")
-            
+        if qualified:
+            lines.append(f"✅ 达标推荐: {len(qualified)} 个")
+        if below_threshold:
+            lines.append(f"⚠️ 低于阈值: {len(below_threshold)} 个")
+        
+        lines.append("")
+        
+        # 显示达标推荐
+        if qualified:
+            lines.append("🔝 达标推荐:")
             lines.append("")
+            for i, rec in enumerate(qualified[:5], 1):
+                symbol = rec.get('symbol', 'N/A')
+                stock_name = rec.get('stock_name', symbol)
+                action = rec.get('action', 'N/A')
+                score = rec.get('score', 0)
+                trend_type = rec.get('trend_type', 'N/A')
+                reason = rec.get('reason', 'N/A')
+                
+                lines.append(f"{i}. {stock_name} ({symbol})")
+                lines.append(f"   推荐: {action} | 得分: {score:.1f}")
+                lines.append(f"   趋势: {trend_type}")
+                lines.append(f"   理由: {reason}")
+                
+                if 'entry_price' in rec:
+                    lines.append(f"   入场: {rec['entry_price']:.2f}")
+                if 'stop_loss' in rec:
+                    lines.append(f"   止损: {rec['stop_loss']:.2f}")
+                
+                lines.append("")
+        
+        # 显示低于阈值的分析结果
+        if below_threshold:
+            lines.append("⚠️ 低于推荐阈值:")
+            lines.append("")
+            for i, rec in enumerate(below_threshold[:5], 1):
+                symbol = rec.get('symbol', 'N/A')
+                stock_name = rec.get('stock_name', symbol)
+                score = rec.get('score', 0)
+                threshold_note = rec.get('threshold_note', '')
+                
+                lines.append(f"{i}. {stock_name} ({symbol})")
+                lines.append(f"   得分: {score:.1f}")
+                lines.append(f"   说明: {threshold_note}")
+                lines.append("")
         
         return "\n".join(lines)
 
@@ -631,6 +710,8 @@ def main():
                        help='配置文件路径')
     parser.add_argument('--local', action='store_true',
                        help='使用本地数据')
+    parser.add_argument('--stocks', type=str, nargs='+',
+                       help='要分析的特定股票代码（可指定多个，用空格分隔），例如：--stocks 600519 000858')
     parser.add_argument('--max-stocks', type=int,
                        help='最大分析股票数量')
     parser.add_argument('--min-score', type=float,
@@ -649,8 +730,11 @@ def main():
             # 尝试从config目录加载
             config_path = Path(__file__).parent.parent / 'config' / 'config.yaml'
         
-        # 创建应用实例
-        app = TradingTipsApp(config_path=str(config_path))
+        # 创建应用实例，传入指定的股票代码（如果有）
+        app = TradingTipsApp(
+            config_path=str(config_path),
+            target_stocks=args.stocks if hasattr(args, 'stocks') and args.stocks else None
+        )
         
         # 应用命令行参数覆盖配置
         if args.local:
